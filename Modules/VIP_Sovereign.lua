@@ -1,28 +1,32 @@
 --[[
-    RECEX SOVEREIGN VIP - EXCLUSIVE PAID MODULE
-    made by recex (SOVEREIGN VIP EDITION)
+    RECEX SOVEREIGN VIP - MODULE: ULTIMATE POWERS & CATACLYSM ENGINE
+    made by recex (PAID VIP EDITION)
 ]]
 
 return function(Hub, Tabs, vipData)
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
-    local UserInputService = game:GetService("UserInputService")
     local TweenService = game:GetService("TweenService")
-    local TeleportService = game:GetService("TeleportService")
-    local HttpService = game:GetService("HttpService")
     local Lighting = game:GetService("Lighting")
+    local SoundService = game:GetService("SoundService")
 
     local LocalPlayer = Players.LocalPlayer
     local Camera = workspace.CurrentCamera
-    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-    local HubGui = PlayerGui:FindFirstChild("RecexStudioHub")
+    local Mouse = LocalPlayer:GetMouse()
 
     local VIPTab = Hub:CreateTab("👑 Sovereign VIP")
 
-    local VIPFolder = Camera:FindFirstChild("RecexVIPAssets3D") or Instance.new("Folder")
-    VIPFolder.Name = "RecexVIPAssets3D"
-    VIPFolder.Parent = Camera
+    local FXFolder = Camera:FindFirstChild("RecexVIPCataclysm3D") or Instance.new("Folder")
+    FXFolder.Name = "RecexVIPCataclysm3D"
+    FXFolder.Parent = Camera
 
+    local COL_CRIMSON = Color3.fromRGB(235, 35, 75)
+    local COL_GOLD    = Color3.fromRGB(255, 200, 65)
+    local COL_VOID    = Color3.fromRGB(145, 55, 255)
+
+    -- =========================================================================
+    -- FUNÇÕES UTILITÁRIAS DE FÍSICA, SOM E EFEITOS 3D
+    -- =========================================================================
     local function GetRoot(plr)
         plr = plr or LocalPlayer
         return plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
@@ -33,471 +37,788 @@ return function(Hub, Tabs, vipData)
         return plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
     end
 
-    -- =========================================================================
-    -- 1. PERSONALIZAÇÃO DE TEMAS VIP & BARRA DE COMANDOS (TECLA ;)
-    -- =========================================================================
-    VIPTab:AddSection("Personalização & Comandos VIP")
-
-    local function ApplyHubTheme(c1, c2)
-        if not HubGui then return end
-        for _, obj in ipairs(HubGui:GetDescendants()) do
-            if obj:IsA("UIGradient") then
-                obj.Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, c1),
-                    ColorSequenceKeypoint.new(0.5, c2),
-                    ColorSequenceKeypoint.new(1, c1)
-                })
-            end
-        end
-    end
-
-    -- Já aplica o Tema Carmesim & Ouro por padrão ao entrar no VIP
-    ApplyHubTheme(Color3.fromRGB(235, 35, 75), Color3.fromRGB(255, 200, 65))
-
-    VIPTab:AddButton("🎨 Tema VIP: Carmesim & Ouro Imperial", "Aplica a paleta oficial da edição paga Sovereign", function()
-        ApplyHubTheme(Color3.fromRGB(235, 35, 75), Color3.fromRGB(255, 200, 65))
-        Hub.Notify("Tema VIP", "Paleta Carmesim & Ouro ativada!", 2)
-    end)
-
-    VIPTab:AddButton("🎨 Tema VIP: Diamante & Azul Real", "Aplica um gradiente brilhante azul safira e diamante", function()
-        ApplyHubTheme(Color3.fromRGB(50, 160, 255), Color3.fromRGB(220, 245, 255))
-        Hub.Notify("Tema VIP", "Paleta Diamante Real ativada!", 2)
-    end)
-
-    VIPTab:AddButton("🎨 Tema VIP: Esmeralda Matrix", "Aplica um gradiente verde neon executivo", function()
-        ApplyHubTheme(Color3.fromRGB(25, 225, 110), Color3.fromRGB(180, 255, 210))
-        Hub.Notify("Tema VIP", "Paleta Esmeralda ativada!", 2)
-    end)
-
-    -- Barra de Comandos Flutuante VIP (Tecla ;)
-    local CmdBarFrame, CmdInput
-    if HubGui then
-        local oldCmd = HubGui:FindFirstChild("RecexVIPCmdBar")
-        if oldCmd then oldCmd:Destroy() end
-
-        CmdBarFrame = Instance.new("Frame")
-        CmdBarFrame.Name = "RecexVIPCmdBar"
-        CmdBarFrame.Size = UDim2.new(0, 320, 0, 38)
-        CmdBarFrame.Position = UDim2.new(0.5, 0, 1, 50)
-        CmdBarFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-        CmdBarFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
-        CmdBarFrame.BorderSizePixel = 0
-        CmdBarFrame.Visible = false
-        CmdBarFrame.Parent = HubGui
-
-        Instance.new("UICorner", CmdBarFrame).CornerRadius = UDim.new(0, 10)
-        local cmdStroke = Instance.new("UIStroke", CmdBarFrame)
-        cmdStroke.Color = Color3.fromRGB(235, 35, 75)
-        cmdStroke.Thickness = 1.5
-
-        CmdInput = Instance.new("TextBox")
-        CmdInput.Size = UDim2.new(1, -24, 1, 0)
-        CmdInput.Position = UDim2.new(0, 12, 0, 0)
-        CmdInput.BackgroundTransparency = 1
-        CmdInput.Text = ""
-        CmdInput.PlaceholderText = "👑 Comando VIP (;speed 100, ;jump 120, ;fov 100, ;day, ;night, ;rejoin)"
-        CmdInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 140)
-        CmdInput.TextColor3 = Color3.fromRGB(255, 200, 65)
-        CmdInput.Font = Enum.Font.GothamBold
-        CmdInput.TextSize = 11
-        CmdInput.TextXAlignment = Enum.TextXAlignment.Left
-        CmdInput.Parent = CmdBarFrame
-
-        CmdInput.FocusLost:Connect(function(enterPressed)
-            if enterPressed and #CmdInput.Text > 0 then
-                local raw = CmdInput.Text:lower():gsub("^;", "")
-                local args = string.split(raw, " ")
-                local cmd = args[1]
-                local val = tonumber(args[2])
-
-                if cmd == "speed" and val and GetHum() then
-                    GetHum().WalkSpeed = val
-                    Hub.Notify("Comando VIP", "WalkSpeed alterado para " .. val, 2)
-                elseif cmd == "jump" and val and GetHum() then
-                    GetHum().UseJumpPower = true
-                    GetHum().JumpPower = val
-                    Hub.Notify("Comando VIP", "JumpPower alterado para " .. val, 2)
-                elseif cmd == "fov" and val then
-                    Camera.FieldOfView = math.clamp(val, 40, 120)
-                    Hub.Notify("Comando VIP", "FOV alterado para " .. val, 2)
-                elseif cmd == "day" then
-                    Lighting.ClockTime = 14
-                elseif cmd == "night" then
-                    Lighting.ClockTime = 0
-                elseif cmd == "rejoin" then
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-                end
-            end
-            CmdInput.Text = ""
-            TweenService:Create(CmdBarFrame, TweenInfo.new(0.25), {Position = UDim2.new(0.5, 0, 1, 50)}):Play()
-            task.delay(0.25, function() CmdBarFrame.Visible = false end)
-        end)
-    end
-
-    UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and input.KeyCode == Enum.KeyCode.Semicolon and CmdBarFrame then
-            CmdBarFrame.Visible = true
-            TweenService:Create(CmdBarFrame, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Position = UDim2.new(0.5, 0, 1, -45)
-            }):Play()
-            task.wait(0.05)
-            CmdInput:CaptureFocus()
-        end
-    end)
-
-    -- =========================================================================
-    -- 2. MIRA ASSISTIDA VIP + CÍRCULO FOV + TARGET HUD (FOTO & VIDA DO ALVO)
-    -- =========================================================================
-    VIPTab:AddSection("Aim Assist VIP, Círculo FOV & Target HUD")
-
-    local FOVCircleEnabled = false
-    local AimAssistVIP = false
-    local TargetHUDEnabled = false
-    local FOVRadius = 110
-    local AimSmoothness = 0.25
-
-    local FOVCircleFrame, TargetCard, TargetAvatar, TargetNameLbl, TargetHPBar, TargetDistLbl
-
-    if HubGui then
-        -- Círculo FOV na tela
-        FOVCircleFrame = Instance.new("Frame")
-        FOVCircleFrame.Name = "RecexFOVCircle"
-        FOVCircleFrame.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
-        FOVCircleFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-        FOVCircleFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-        FOVCircleFrame.BackgroundTransparency = 1
-        FOVCircleFrame.Visible = false
-        FOVCircleFrame.Parent = HubGui
-
-        Instance.new("UICorner", FOVCircleFrame).CornerRadius = UDim.new(1, 0)
-        local fovStroke = Instance.new("UIStroke", FOVCircleFrame)
-        fovStroke.Color = Color3.fromRGB(235, 35, 75)
-        fovStroke.Thickness = 1.5
-        fovStroke.Transparency = 0.2
-
-        -- Card Flutuante do Alvo (Target HUD)
-        TargetCard = Instance.new("Frame")
-        TargetCard.Name = "RecexTargetHUD"
-        TargetCard.Size = UDim2.new(0, 210, 0, 58)
-        TargetCard.Position = UDim2.new(0.5, 0, 0.78, 0)
-        TargetCard.AnchorPoint = Vector2.new(0.5, 0.5)
-        TargetCard.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
-        TargetCard.BorderSizePixel = 0
-        TargetCard.Visible = false
-        TargetCard.Parent = HubGui
-
-        Instance.new("UICorner", TargetCard).CornerRadius = UDim.new(0, 10)
-        local thStroke = Instance.new("UIStroke", TargetCard)
-        thStroke.Color = Color3.fromRGB(255, 200, 65)
-        thStroke.Thickness = 1.2
-
-        TargetAvatar = Instance.new("ImageLabel")
-        TargetAvatar.Size = UDim2.new(0, 42, 0, 42)
-        TargetAvatar.Position = UDim2.new(0, 8, 0.5, -21)
-        TargetAvatar.BackgroundColor3 = Color3.fromRGB(24, 24, 34)
-        TargetAvatar.Parent = TargetCard
-        Instance.new("UICorner", TargetAvatar).CornerRadius = UDim.new(1, 0)
-
-        TargetNameLbl = Instance.new("TextLabel")
-        TargetNameLbl.Size = UDim2.new(1, -64, 0, 16)
-        TargetNameLbl.Position = UDim2.new(0, 58, 0, 8)
-        TargetNameLbl.BackgroundTransparency = 1
-        TargetNameLbl.Text = "Nenhum Alvo"
-        TargetNameLbl.TextColor3 = Color3.fromRGB(245, 245, 250)
-        TargetNameLbl.Font = Enum.Font.GothamBlack
-        TargetNameLbl.TextSize = 11
-        TargetNameLbl.TextXAlignment = Enum.TextXAlignment.Left
-        TargetNameLbl.TextTruncate = Enum.TextTruncate.AtEnd
-        TargetNameLbl.Parent = TargetCard
-
-        TargetDistLbl = Instance.new("TextLabel")
-        TargetDistLbl.Size = UDim2.new(1, -64, 0, 14)
-        TargetDistLbl.Position = UDim2.new(0, 58, 0, 23)
-        TargetDistLbl.BackgroundTransparency = 1
-        TargetDistLbl.Text = "HP: 100% • 0m"
-        TargetDistLbl.TextColor3 = Color3.fromRGB(255, 200, 65)
-        TargetDistLbl.Font = Enum.Font.GothamMedium
-        TargetDistLbl.TextSize = 9
-        TargetDistLbl.TextXAlignment = Enum.TextXAlignment.Left
-        TargetDistLbl.Parent = TargetCard
-
-        local hpBg = Instance.new("Frame")
-        hpBg.Size = UDim2.new(1, -68, 0, 6)
-        hpBg.Position = UDim2.new(0, 58, 0, 42)
-        hpBg.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
-        hpBg.BorderSizePixel = 0
-        hpBg.Parent = TargetCard
-        Instance.new("UICorner", hpBg).CornerRadius = UDim.new(1, 0)
-
-        TargetHPBar = Instance.new("Frame")
-        TargetHPBar.Size = UDim2.new(1, 0, 1, 0)
-        TargetHPBar.BackgroundColor3 = Color3.fromRGB(235, 35, 75)
-        TargetHPBar.BorderSizePixel = 0
-        TargetHPBar.Parent = hpBg
-        Instance.new("UICorner", TargetHPBar).CornerRadius = UDim.new(1, 0)
-    end
-
-    VIPTab:AddToggle("Mostrar Círculo FOV na Tela", "Desenha o raio de captura de alvo no centro da tela", false, function(state)
-        FOVCircleEnabled = state
-        if FOVCircleFrame then FOVCircleFrame.Visible = state end
-    end)
-
-    VIPTab:AddSlider("Tamanho do Círculo FOV", 40, 300, 110, function(val)
-        FOVRadius = val
-        if FOVCircleFrame then
-            FOVCircleFrame.Size = UDim2.new(0, val * 2, 0, val * 2)
-        end
-    end)
-
-    VIPTab:AddToggle("Ativar Aim Assist Suave (Dentro do FOV)", "Puxa suavemente a mira para o inimigo dentro do círculo FOV", false, function(state)
-        AimAssistVIP = state
-    end)
-
-    VIPTab:AddSlider("Suavidade da Mira (Smoothness %)", 10, 100, 35, function(val)
-        AimSmoothness = val / 100
-    end)
-
-    VIPTab:AddToggle("Mostrar Painel do Alvo (Target HUD VIP)", "Mostra foto, vida e distância do jogador na sua mira", false, function(state)
-        TargetHUDEnabled = state
-        if not state and TargetCard then TargetCard.Visible = false end
-    end)
-
-    -- =========================================================================
-    -- 3. CLONADOR DE SKIN / AVATAR MORPH & COSMÉTICOS IMPERIAIS
-    -- =========================================================================
-    VIPTab:AddSection("Clonador de Avatar (Morph) & Itens Raros")
-
-    local function CopyPlayerAppearance(targetPlr)
-        local myChar = LocalPlayer.Character
-        local tChar = targetPlr and targetPlr.Character
-        if not myChar or not tChar then return end
-
-        -- Remove roupas e acessórios atuais
-        for _, v in ipairs(myChar:GetChildren()) do
-            if v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") or v:IsA("Accessory") or v:IsA("BodyColors") then
-                v:Destroy()
-            end
-        end
-
-        -- Clona roupas, cores e acessórios do alvo
-        for _, v in ipairs(tChar:GetChildren()) do
-            if v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") or v:IsA("Accessory") or v:IsA("BodyColors") then
-                v:Clone().Parent = myChar
-            end
-        end
-
-        Hub.Notify("👑 Avatar Clonado!", "Você copiou a skin de " .. targetPlr.DisplayName, 3)
-    end
-
-    VIPTab:AddButton("🎭 Clonar Skin do Jogador Mais Próximo", "Copia instantaneamente a roupa e acessórios de quem estiver perto", function()
+    local function GetClosestEnemy()
         local myRoot = GetRoot()
-        if not myRoot then return end
+        if not myRoot then return nil end
         local closest, minDist = nil, math.huge
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and GetRoot(p) then
-                local d = (GetRoot(p).Position - myRoot.Position).Magnitude
-                if d < minDist then
-                    minDist = d
-                    closest = p
-                end
-            end
-        end
-        if closest then
-            CopyPlayerAppearance(closest)
-        end
-    end)
-
-    VIPTab:AddButton("🎲 Clonar Skin de um Jogador Aleatório", "Transforma seu avatar na skin de alguém do servidor", function()
-        local list = {}
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then table.insert(list, p) end
-        end
-        if #list > 0 then
-            CopyPlayerAppearance(list[math.random(1, #list)])
-        end
-    end)
-
-    VIPTab:AddToggle("✨ Kit Headless + Korblox + Halo Imperial 3D", "Deixa a cabeça invisível e adiciona auréola Carmesim & Ouro", false, function(state)
-        local char = LocalPlayer.Character
-        if not char then return end
-        local head = char:FindFirstChild("Head")
-        local rLeg = char:FindFirstChild("RightLowerLeg") or char:FindFirstChild("Right Leg")
-
-        if head then
-            head.Transparency = state and 1 or 0
-            local face = head:FindFirstChildOfClass("Decal")
-            if face then face.Transparency = state and 1 or 0 end
-        end
-        if rLeg then
-            rLeg.Transparency = state and 1 or 0
-        end
-
-        local oldHalo = VIPFolder:FindFirstChild("SovereignHalo")
-        if oldHalo then oldHalo:Destroy() end
-
-        if state then
-            local halo = Instance.new("Part")
-            halo.Name = "SovereignHalo"
-            halo.Shape = Enum.PartType.Cylinder
-            halo.Size = Vector3.new(0.25, 3.2, 3.2)
-            halo.Material = Enum.Material.Neon
-            halo.Color = Color3.fromRGB(235, 35, 75)
-            halo.Anchored = true
-            halo.CanCollide = false
-            halo.Parent = VIPFolder
-        end
-    end)
-
-    -- =========================================================================
-    -- 4. MECHA IMPERIAL 3D (TITÃ DE COMBATE CONTROLÁVEL)
-    -- =========================================================================
-    VIPTab:AddSection("Mecha Imperial 3D (Exclusivo VIP)")
-
-    local MechaActive = false
-    local MechaModel = nil
-
-    VIPTab:AddToggle("🤖 Invocar Armadura Mecha Sovereign 3D", "Constrói um robô titã negro, carmesim e dourado ao redor de você", false, function(state)
-        MechaActive = state
-        if MechaModel then MechaModel:Destroy() MechaModel = nil end
-
-        if state then
-            MechaModel = Instance.new("Model")
-            MechaModel.Name = "SovereignMecha3D"
-            MechaModel.Parent = VIPFolder
-
-            local function AddMechaPart(name, size, col, mat)
-                local p = Instance.new("Part")
-                p.Name = name
-                p.Size = size
-                p.Color = col
-                p.Material = mat or Enum.Material.Metal
-                p.Anchored = true
-                p.CanCollide = false
-                p.Parent = MechaModel
-                return p
-            end
-
-            AddMechaPart("Chest", Vector3.new(8, 10, 5), Color3.fromRGB(15, 15, 22), Enum.Material.Metal)
-            AddMechaPart("ReactorCore", Vector3.new(3.2, 3.2, 5.4), Color3.fromRGB(235, 35, 75), Enum.Material.Neon)
-            AddMechaPart("LeftShoulder", Vector3.new(3.5, 4, 4), Color3.fromRGB(255, 200, 65), Enum.Material.Neon)
-            AddMechaPart("RightShoulder", Vector3.new(3.5, 4, 4), Color3.fromRGB(255, 200, 65), Enum.Material.Neon)
-            AddMechaPart("VisorHead", Vector3.new(4, 3.5, 4), Color3.fromRGB(235, 35, 75), Enum.Material.Neon)
-
-            Hub.Notify("👑 Mecha Sovereign 3D", "Titã Imperial ativado!", 3)
-        end
-    end)
-
-    -- =========================================================================
-    -- 5. SEGURANÇA VIP: ANTI-MOD/STAFF & SERVER SNIPER (SERVIDOR VAZIO)
-    -- =========================================================================
-    VIPTab:AddSection("Segurança VIP & Server Sniper")
-
-    local AntiStaffEnabled = false
-    VIPTab:AddToggle("🛡️ Detector Anti-Admin / Criador do Jogo", "Avisa imediatamente se um admin ou dono do jogo entrar na sala", true, function(state)
-        AntiStaffEnabled = state
-    end)
-
-    Players.PlayerAdded:Connect(function(newPlr)
-        if not AntiStaffEnabled then return end
-        if newPlr.UserId == game.CreatorId then
-            Hub.Notify("⚠️ ALERTA DE SEGURANÇA VIP", "O Criador do jogo (" .. newPlr.Name .. ") acabou de entrar no servidor!", 8)
-        end
-    end)
-
-    VIPTab:AddButton("🕵️ Entrar no Servidor Mais Vazio (Low Player Hop)", "Procura um servidor quase vazio para você farmar sozinho", function()
-        Hub.Notify("Server Sniper VIP", "Buscando o servidor mais vazio disponível...", 3)
-        pcall(function()
-            local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-            local res = HttpService:JSONDecode(game:HttpGet(url))
-            for _, srv in ipairs(res.data) do
-                if srv.playing < srv.maxPlayers and srv.id ~= game.JobId then
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, srv.id, LocalPlayer)
-                    break
-                end
-            end
-        end)
-    end)
-
-    -- =========================================================================
-    -- LOOP EM TEMPO REAL DO MÓDULO VIP
-    -- =========================================================================
-    local LastAvatarId = nil
-
-    RunService.RenderStepped:Connect(function(dt)
-        local myRoot = GetRoot()
-
-        -- 1. Busca o alvo dentro do Círculo FOV
-        local bestTarget, bestScreenDist = nil, FOVRadius
-        local centerScreen = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= LocalPlayer and plr.Character then
-                local head = plr.Character:FindFirstChild("Head")
-                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-                if head and hum and hum.Health > 0 then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen then
-                        local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - centerScreen).Magnitude
-                        if dist2D < bestScreenDist then
-                            bestScreenDist = dist2D
-                            bestTarget = plr
-                        end
+                local r = GetRoot(plr)
+                local h = GetHum(plr)
+                if r and h and h.Health > 0 then
+                    local d = (r.Position - myRoot.Position).Magnitude
+                    if d < minDist then
+                        minDist = d
+                        closest = plr
+                    end
+                end
+            end
+        end
+        return closest
+    end
+
+    local function PlaySFX(id, vol, speed)
+        local s = Instance.new("Sound")
+        s.SoundId = id
+        s.Volume = vol or 0.6
+        s.PlaybackSpeed = speed or 1
+        s.Parent = SoundService
+        s:Play()
+        task.delay(4, function()
+            if s and s.Parent then s:Destroy() end
+        end)
+    end
+
+    local function ShakeCamera(intensity, duration)
+        task.spawn(function()
+            local start = tick()
+            while tick() - start < duration do
+                local offset = Vector3.new(
+                    (math.random() - 0.5) * intensity,
+                    (math.random() - 0.5) * intensity,
+                    (math.random() - 0.5) * intensity
+                )
+                Camera.CFrame = Camera.CFrame * CFrame.new(offset)
+                RunService.RenderStepped:Wait()
+            end
+        end)
+    end
+
+    local function Create3DWave(pos, color, maxRadius, duration, height)
+        local ring = Instance.new("Part")
+        ring.Shape = Enum.PartType.Cylinder
+        ring.Material = Enum.Material.Neon
+        ring.Color = color or COL_CRIMSON
+        ring.Anchored = true
+        ring.CanCollide = false
+        ring.CastShadow = false
+        ring.Size = Vector3.new(height or 0.4, 2, 2)
+        ring.CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(90))
+        ring.Parent = FXFolder
+
+        TweenService:Create(ring, TweenInfo.new(duration or 0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = Vector3.new(0.1, maxRadius, maxRadius),
+            Transparency = 1
+        }):Play()
+
+        task.delay(duration or 0.6, function()
+            if ring and ring.Parent then ring:Destroy() end
+        end)
+    end
+
+    local function CreateEnergySphere(pos, color, startSize, endSize, duration)
+        local ball = Instance.new("Part")
+        ball.Shape = Enum.PartType.Ball
+        ball.Material = Enum.Material.Neon
+        ball.Color = color
+        ball.Anchored = true
+        ball.CanCollide = false
+        ball.CastShadow = false
+        ball.Size = Vector3.new(startSize, startSize, startSize)
+        ball.Position = pos
+        ball.Parent = FXFolder
+
+        TweenService:Create(ball, TweenInfo.new(duration, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
+            Size = Vector3.new(endSize, endSize, endSize),
+            Transparency = 1
+        }):Play()
+
+        task.delay(duration, function()
+            if ball and ball.Parent then ball:Destroy() end
+        end)
+    end
+
+    -- =========================================================================
+    -- SEÇÃO 1: ATRIBUTOS SUPREMOS (ZERO COOLDOWN, OVERDRIVE & TITAN MODE)
+    -- =========================================================================
+    VIPTab:AddSection("Atributos Supremos & Transformações")
+
+    -- 1. Zero Cooldown
+    local ZeroCDActive = false
+    VIPTab:AddToggle("1. Zero Cooldown (Sem Intervalo de Skills)", "Remove travas de tempo das Tools e ativa habilidades sem pausa", false, function(state)
+        ZeroCDActive = state
+        if state then
+            Hub.Notify("👑 Zero Cooldown", "Intervalos de habilidades e Tools removidos!", 3)
+        end
+    end)
+
+    -- 2. Overdrive Mode
+    local OverdriveActive = false
+    local OverdriveHighlight = nil
+    VIPTab:AddToggle("2. Overdrive (Modo Sobrecarga de Combate)", "Aumenta velocidade, pulo, ataque, FOV e ativa aura Carmesim", false, function(state)
+        OverdriveActive = state
+        local hum = GetHum()
+        if state then
+            PlaySFX("rbxassetid://9114221580", 0.7, 1.1)
+            Camera.FieldOfView = 92
+            if hum then
+                hum.WalkSpeed = 65
+                hum.UseJumpPower = true
+                hum.JumpPower = 115
+            end
+            if LocalPlayer.Character then
+                OverdriveHighlight = Instance.new("Highlight")
+                OverdriveHighlight.FillColor = COL_CRIMSON
+                OverdriveHighlight.OutlineColor = COL_GOLD
+                OverdriveHighlight.FillTransparency = 0.35
+                OverdriveHighlight.Parent = LocalPlayer.Character
+            end
+            if GetRoot() then
+                Create3DWave(GetRoot().Position, COL_CRIMSON, 45, 0.7, 1.5)
+            end
+            Hub.Notify("👑 OVERDRIVE", "Atributos de combate elevados ao máximo!", 3)
+        else
+            Camera.FieldOfView = 70
+            if hum then
+                hum.WalkSpeed = 16
+                hum.JumpPower = 50
+            end
+            if OverdriveHighlight then OverdriveHighlight:Destroy() OverdriveHighlight = nil end
+        end
+    end)
+
+    -- 3. Titan Mode
+    local TitanActive = false
+    local TitanParts = {}
+    VIPTab:AddToggle("3. Titan Mode (Escala Colossal & Passo Pesado)", "Aumenta a escala do personagem, cria armadura de energia e treme o chão", false, function(state)
+        TitanActive = state
+        local hum = GetHum()
+        local char = LocalPlayer.Character
+
+        for _, p in ipairs(TitanParts) do if p and p.Parent then p:Destroy() end end
+        TitanParts = {}
+
+        if hum then
+            -- Escala R15 caso o servidor possua NumberValues de escala
+            for _, scaleName in ipairs({"BodyDepthScale", "BodyHeightScale", "BodyWidthScale", "HeadScale"}) do
+                local valObj = hum:FindFirstChild(scaleName)
+                if valObj and valObj:IsA("NumberValue") then
+                    valObj.Value = state and 2.6 or 1
+                end
+            end
+            hum.HipHeight = state and 4.5 or 0
+        end
+
+        if state and char then
+            PlaySFX("rbxassetid://9114221580", 0.8, 0.65)
+            for _, limb in ipairs(char:GetChildren()) do
+                if limb:IsA("BasePart") and limb.Name ~= "HumanoidRootPart" then
+                    local armor = Instance.new("Part")
+                    armor.Size = limb.Size * 2.2
+                    armor.Material = Enum.Material.ForceField
+                    armor.Color = COL_GOLD
+                    armor.Anchored = true
+                    armor.CanCollide = false
+                    armor.Parent = FXFolder
+                    table.insert(TitanParts, {Armor = armor, Limb = limb})
+                end
+            end
+            Hub.Notify("👑 TITAN MODE", "Modo Colossal ativado! Cada passo gera abalos sísmicos.", 3)
+        end
+    end)
+
+    -- 4. Dimension Shift
+    local DimensionActive = false
+    VIPTab:AddToggle("4. Dimension Shift (Salto Dimensional)", "Entra no plano astral invisível e teleporta instantaneamente ao mirar", false, function(state)
+        DimensionActive = state
+        local root = GetRoot()
+        if state then
+            PlaySFX("rbxassetid://9114221580", 0.65, 1.3)
+            local cc = Lighting:FindFirstChild("RecexDimShift") or Instance.new("ColorCorrectionEffect", Lighting)
+            cc.Name = "RecexDimShift"
+            cc.TintColor = Color3.fromRGB(185, 130, 255)
+            cc.Contrast = 0.45
+            cc.Saturation = -0.5
+
+            if root then
+                CreateEnergySphere(root.Position, COL_VOID, 2, 28, 0.5)
+                if Mouse.Hit then
+                    root.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 4, 0))
+                    CreateEnergySphere(root.Position, COL_GOLD, 2, 28, 0.5)
+                end
+            end
+            if LocalPlayer.Character then
+                for _, p in ipairs(LocalPlayer.Character:GetDescendants()) do
+                    if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                        p.Transparency = 0.75
+                    end
+                end
+            end
+            Hub.Notify("👑 Dimension Shift", "Você atravessou para a dimensão astral!", 3)
+        else
+            local cc = Lighting:FindFirstChild("RecexDimShift")
+            if cc then cc:Destroy() end
+            if LocalPlayer.Character then
+                for _, p in ipairs(LocalPlayer.Character:GetDescendants()) do
+                    if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                        p.Transparency = 0
+                    end
+                end
+            end
+        end
+    end)
+
+    -- =========================================================================
+    -- SEÇÃO 2: TÉCNICAS DE COMBATE & FÍSICA VIP (GOLPES ESPECIAIS)
+    -- =========================================================================
+    VIPTab:AddSection("Técnicas Especiais de Combate VIP")
+
+    -- 5. Ultimate Combo
+    VIPTab:AddButton("5. Ultimate Combo (Sequência Cinematográfica)", "Executa um combo aéreo de 6 golpes velozes + impacto final no alvo", function()
+        local enemy = GetClosestEnemy()
+        local myRoot = GetRoot()
+        if not enemy or not GetRoot(enemy) or not myRoot then
+            Hub.Notify("Aviso", "Nenhum alvo próximo encontrado para o Ultimate Combo!", 2)
+            return
+        end
+
+        task.spawn(function()
+            local eRoot = GetRoot(enemy)
+            Hub.Notify("👑 ULTIMATE COMBO", "Executando sequência em " .. enemy.DisplayName .. "!", 3)
+            PlaySFX("rbxassetid://9114221580", 0.75, 1.15)
+
+            -- Fase 1: 6 Cortes em ângulos diferentes ao redor do alvo
+            for i = 1, 6 do
+                if not eRoot or not eRoot.Parent then break end
+                local angle = math.rad(i * 60)
+                local offset = Vector3.new(math.cos(angle) * 5, (i % 2 == 0) and 4 or 0, math.sin(angle) * 5)
+                myRoot.CFrame = CFrame.lookAt(eRoot.Position + offset, eRoot.Position)
+                Create3DWave(eRoot.Position, (i % 2 == 0) and COL_CRIMSON or COL_GOLD, 18, 0.35, 0.5)
+                local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if tool then tool:Activate() end
+                ShakeCamera(0.6, 0.08)
+                task.wait(0.11)
+            end
+
+            -- Fase 2: Teleporte Aéreo + Slam Final
+            if eRoot and eRoot.Parent then
+                myRoot.CFrame = CFrame.lookAt(eRoot.Position + Vector3.new(0, 18, 0), eRoot.Position)
+                task.wait(0.15)
+                myRoot.CFrame = eRoot.CFrame * CFrame.new(0, 0, 3)
+                CreateEnergySphere(eRoot.Position, COL_CRIMSON, 4, 42, 0.65)
+                Create3DWave(eRoot.Position, COL_GOLD, 55, 0.75, 1.2)
+                ShakeCamera(1.4, 0.35)
+            end
+        end)
+    end)
+
+    -- 6. Phantom Strike
+    VIPTab:AddButton("6. Phantom Strike (Corte Fantasma Instantâneo)", "Atravessa o inimigo em velocidade da luz deixando 5 espectros", function()
+        local enemy = GetClosestEnemy()
+        local myRoot = GetRoot()
+        if not enemy or not GetRoot(enemy) or not myRoot then return end
+
+        local ePos = GetRoot(enemy).Position
+        local startPos = myRoot.Position
+        PlaySFX("rbxassetid://9114221580", 0.7, 1.4)
+
+        for i = 1, 5 do
+            local lerpPos = startPos:Lerp(ePos, i / 5)
+            local phantom = Instance.new("Part")
+            phantom.Size = Vector3.new(2, 5, 1)
+            phantom.Material = Enum.Material.Neon
+            phantom.Color = COL_VOID
+            phantom.Transparency = 0.35
+            phantom.Anchored = true
+            phantom.CanCollide = false
+            phantom.CFrame = CFrame.lookAt(lerpPos, ePos)
+            phantom.Parent = FXFolder
+            TweenService:Create(phantom, TweenInfo.new(0.5), {Transparency = 1}):Play()
+            task.delay(0.5, function() if phantom.Parent then phantom:Destroy() end end)
+        end
+
+        myRoot.CFrame = GetRoot(enemy).CFrame * CFrame.new(0, 0, -4.5) * CFrame.Angles(0, math.rad(180), 0)
+        Create3DWave(ePos, COL_VOID, 26, 0.45, 0.6)
+        ShakeCamera(0.8, 0.2)
+    end)
+
+    -- 7. Clone Assault
+    VIPTab:AddButton("7. Clone Assault (Esquadrão de Clones Explosivos)", "Invoca 6 clones visuais que avançam contra o alvo e explodem", function()
+        local enemy = GetClosestEnemy()
+        local myRoot = GetRoot()
+        if not enemy or not GetRoot(enemy) or not myRoot or not LocalPlayer.Character then return end
+
+        local eRoot = GetRoot(enemy)
+        LocalPlayer.Character.Archivable = true
+        Hub.Notify("👑 Clone Assault", "6 Clones enviados contra " .. enemy.DisplayName .. "!", 3)
+
+        for i = 1, 6 do
+            task.spawn(function()
+                local angle = math.rad(i * 60)
+                local spawnPos = myRoot.Position + Vector3.new(math.cos(angle) * 10, 2, math.sin(angle) * 10)
+
+                local cloneOrb = Instance.new("Part")
+                cloneOrb.Size = Vector3.new(2.5, 5.2, 1.5)
+                cloneOrb.Material = Enum.Material.Neon
+                cloneOrb.Color = (i % 2 == 0) and COL_CRIMSON or COL_GOLD
+                cloneOrb.Anchored = true
+                cloneOrb.CanCollide = false
+                cloneOrb.CFrame = CFrame.lookAt(spawnPos, eRoot.Position)
+                cloneOrb.Parent = FXFolder
+
+                local tw = TweenService:Create(cloneOrb, TweenInfo.new(0.38, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+                    CFrame = eRoot.CFrame
+                })
+                tw:Play()
+                tw.Completed:Wait()
+                CreateEnergySphere(eRoot.Position, cloneOrb.Color, 2, 18, 0.4)
+                cloneOrb:Destroy()
+            end)
+        end
+    end)
+
+    -- 8. Target Cyclone
+    local TargetCycloneActive = false
+    VIPTab:AddToggle("8. Target Cyclone (Redemoinho no Alvo)", "Prende você num furacão letal girando ao redor do alvo", false, function(state)
+        TargetCycloneActive = state
+    end)
+
+    -- 9. Cyclone Attack (Ao redor de você)
+    local SelfCycloneActive = false
+    VIPTab:AddToggle("9. Cyclone Attack (Furacão Pessoal 3D)", "Cria um tornado 3D ao seu redor que arremessa peças soltas", false, function(state)
+        SelfCycloneActive = state
+    end)
+
+    -- 10. Gravity Crush
+    VIPTab:AddButton("10. Gravity Crush (Esmagamento Gravitacional)", "Cria uma cúpula roxa pesada que esmaga objetos e alvos para o chão", function()
+        local myRoot = GetRoot()
+        if not myRoot then return end
+        local center = myRoot.Position
+
+        PlaySFX("rbxassetid://9114221580", 0.85, 0.55)
+        CreateEnergySphere(center, COL_VOID, 65, 6, 0.65)
+        Create3DWave(center - Vector3.new(0, 2.5, 0), COL_VOID, 70, 0.8, 2.5)
+        ShakeCamera(1.5, 0.45)
+
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and not v.Anchored and not v:IsDescendantOf(LocalPlayer.Character) then
+                if (v.Position - center).Magnitude < 75 then
+                    v.AssemblyLinearVelocity = Vector3.new(0, -350, 0)
+                end
+            end
+        end
+        Hub.Notify("👑 Gravity Crush", "Pressão gravitacional máxima aplicada na área!", 3)
+    end)
+
+    -- 11. Shockwave
+    VIPTab:AddButton("11. Shockwave (Onda Expansiva Tripla)", "Dispara 3 ondas de choque concêntricas que repelem objetos", function()
+        local myRoot = GetRoot()
+        if not myRoot then return end
+        local pos = myRoot.Position - Vector3.new(0, 2.5, 0)
+        PlaySFX("rbxassetid://9114221580", 0.8, 0.9)
+        ShakeCamera(1.2, 0.35)
+
+        task.spawn(function()
+            for i = 1, 3 do
+                Create3DWave(pos, (i % 2 == 0) and COL_GOLD or COL_CRIMSON, 45 * i, 0.65, 1.2)
+                task.wait(0.12)
+            end
+        end)
+
+        for _, v in ipairs(workspace:GetChildren()) do
+            if v:IsA("BasePart") and not v.Anchored and (v.Position - myRoot.Position).Magnitude < 65 then
+                v.AssemblyLinearVelocity = (v.Position - myRoot.Position).Unit * 220 + Vector3.new(0, 60, 0)
+            end
+        end
+    end)
+
+    -- 12. Impact Burst
+    VIPTab:AddButton("12. Impact Burst (Explosão de Curto Alcance)", "Detona energia concentrada no seu peito com impulso radial", function()
+        local myRoot = GetRoot()
+        if not myRoot then return end
+        PlaySFX("rbxassetid://9114221580", 0.9, 1.05)
+        CreateEnergySphere(myRoot.Position, COL_GOLD, 2, 38, 0.45)
+        CreateEnergySphere(myRoot.Position, COL_CRIMSON, 4, 26, 0.35)
+        ShakeCamera(1.6, 0.28)
+    end)
+
+    -- 13. Area Strike
+    VIPTab:AddButton("13. Area Strike (Bombardeio de Pilares de Luz)", "Invoca 12 pilares de energia orbital do céu ao redor da área", function()
+        local myRoot = GetRoot()
+        if not myRoot then return end
+        local center = myRoot.Position
+        Hub.Notify("👑 Area Strike", "Bombardeio orbital iniciado!", 3)
+
+        task.spawn(function()
+            for i = 1, 12 do
+                local strikePos = center + Vector3.new(math.random(-45, 45), 0, math.random(-45, 45))
+                local pillar = Instance.new("Part")
+                pillar.Shape = Enum.PartType.Cylinder
+                pillar.Size = Vector3.new(160, 7, 7)
+                pillar.Material = Enum.Material.Neon
+                pillar.Color = (i % 2 == 0) and COL_CRIMSON or COL_GOLD
+                pillar.Anchored = true
+                pillar.CanCollide = false
+                pillar.CFrame = CFrame.new(strikePos + Vector3.new(0, 80, 0)) * CFrame.Angles(0, 0, math.rad(90))
+                pillar.Parent = FXFolder
+
+                Create3DWave(strikePos, pillar.Color, 28, 0.5, 0.8)
+                ShakeCamera(0.5, 0.1)
+                TweenService:Create(pillar, TweenInfo.new(0.45), {Size = Vector3.new(160, 0.1, 0.1), Transparency = 1}):Play()
+                task.delay(0.45, function() if pillar.Parent then pillar:Destroy() end end)
+                task.wait(0.1)
+            end
+        end)
+    end)
+
+    -- =========================================================================
+    -- SEÇÃO 3: FLINGS AVANÇADOS (PHANTOM FLING & CHAIN FLING)
+    -- =========================================================================
+    VIPTab:AddSection("Física de Lançamento VIP (Flings)")
+
+    -- 14. Phantom Fling
+    VIPTab:AddButton("14. Phantom Fling (Lançamento Fantasma no Alvo)", "Lança o alvo mais próximo com pico de física e volta pro seu lugar", function()
+        local enemy = GetClosestEnemy()
+        local myRoot = GetRoot()
+        if not enemy or not GetRoot(enemy) or not myRoot then return end
+
+        local savedCF = myRoot.CFrame
+        local eRoot = GetRoot(enemy)
+        Hub.Notify("👑 Phantom Fling", "Aplicando impulso físico em " .. enemy.DisplayName, 3)
+
+        task.spawn(function()
+            local start = tick()
+            while tick() - start < 0.65 and eRoot and eRoot.Parent and myRoot do
+                myRoot.CFrame = eRoot.CFrame
+                myRoot.AssemblyLinearVelocity = Vector3.new(9000, 9000, 9000)
+                myRoot.AssemblyAngularVelocity = Vector3.new(9000, 9000, 9000)
+                RunService.Heartbeat:Wait()
+            end
+            if myRoot then
+                myRoot.AssemblyLinearVelocity = Vector3.zero
+                myRoot.AssemblyAngularVelocity = Vector3.zero
+                myRoot.CFrame = savedCF
+            end
+        end)
+    end)
+
+    -- 15. Chain Fling
+    VIPTab:AddButton("15. Chain Fling (Fling em Cadeia no Servidor)", "Teleporta de jogador em jogador aplicando lançamento em sequência!", function()
+        local myRoot = GetRoot()
+        if not myRoot then return end
+        local savedCF = myRoot.CFrame
+        Hub.Notify("👑 CHAIN FLING", "Iniciando lançamento em cadeia nos alvos!", 4)
+
+        task.spawn(function()
+            local count = 0
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer and GetRoot(plr) and GetHum(plr) and GetHum(plr).Health > 0 then
+                    count += 1
+                    if count > 6 then break end
+                    local tRoot = GetRoot(plr)
+                    local tStart = tick()
+                    Create3DWave(tRoot.Position, COL_CRIMSON, 18, 0.4, 0.5)
+                    while tick() - tStart < 0.35 and tRoot and tRoot.Parent and myRoot do
+                        myRoot.CFrame = tRoot.CFrame
+                        myRoot.AssemblyLinearVelocity = Vector3.new(8500, 8500, 8500)
+                        RunService.Heartbeat:Wait()
+                    end
+                end
+            end
+            if myRoot then
+                myRoot.AssemblyLinearVelocity = Vector3.zero
+                myRoot.AssemblyAngularVelocity = Vector3.zero
+                myRoot.CFrame = savedCF
+            end
+            Hub.Notify("👑 Chain Fling", "Sequência finalizada! Posição restaurada.", 3)
+        end)
+    end)
+
+    -- =========================================================================
+    -- SEÇÃO 4: CATACLISMOS & EVENTOS SUPREMOS (NUCLEAR, APOCALYPSE, CHAOS)
+    -- =========================================================================
+    VIPTab:AddSection("Cataclismos & Modos Supremos VIP")
+
+    -- 16. Meteor Attack
+    VIPTab:AddButton("16. Meteor Attack (Meteoro Colossal de Madara)", "Invoca um meteoro gigante flamejante que cai onde você estiver olhando", function()
+        local myRoot = GetRoot()
+        if not myRoot then return end
+        local targetPos = (Mouse and Mouse.Hit) and Mouse.Hit.Position or (myRoot.Position + Vector3.new(0, 0, -25))
+
+        Hub.Notify("👑 METEOR ATTACK", "Um meteoro colossal entrou na atmosfera!", 3)
+        PlaySFX("rbxassetid://9114221580", 0.9, 0.6)
+
+        local meteor = Instance.new("Part")
+        meteor.Shape = Enum.PartType.Ball
+        meteor.Size = Vector3.new(36, 36, 36)
+        meteor.Material = Enum.Material.Neon
+        meteor.Color = COL_CRIMSON
+        meteor.Anchored = true
+        meteor.CanCollide = false
+        meteor.Position = targetPos + Vector3.new(60, 220, 60)
+        meteor.Parent = FXFolder
+
+        local core = Instance.new("Part")
+        core.Shape = Enum.PartType.Ball
+        core.Size = Vector3.new(40, 40, 40)
+        core.Material = Enum.Material.ForceField
+        core.Color = COL_GOLD
+        core.Anchored = true
+        core.CanCollide = false
+        core.Position = meteor.Position
+        core.Parent = meteor
+
+        local fallTween = TweenService:Create(meteor, TweenInfo.new(1.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = targetPos
+        })
+        TweenService:Create(core, TweenInfo.new(1.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = targetPos
+        }):Play()
+        fallTween:Play()
+
+        fallTween.Completed:Connect(function()
+            PlaySFX("rbxassetid://9114221580", 1, 0.5)
+            ShakeCamera(2.5, 0.8)
+            CreateEnergySphere(targetPos, COL_GOLD, 15, 130, 1.1)
+            Create3DWave(targetPos, COL_CRIMSON, 160, 1.2, 4)
+            Create3DWave(targetPos, COL_GOLD, 110, 0.9, 2)
+            meteor:Destroy()
+        end)
+    end)
+
+    -- 17. Time Freeze
+    local TimeFreezeDome = nil
+    VIPTab:AddToggle("17. Time Freeze (Congelamento Temporal)", "Congela visualmente a cena, inverte cores e trava inimigos na área", false, function(state)
+        if TimeFreezeDome then TimeFreezeDome:Destroy() TimeFreezeDome = nil end
+        if state then
+            PlaySFX("rbxassetid://9114221580", 0.85, 0.5)
+            local cc = Lighting:FindFirstChild("RecexVIPTimeFreeze") or Instance.new("ColorCorrectionEffect", Lighting)
+            cc.Name = "RecexVIPTimeFreeze"
+            cc.Contrast = -1.6
+            cc.Saturation = -1
+
+            if GetRoot() then
+                TimeFreezeDome = Instance.new("Part")
+                TimeFreezeDome.Shape = Enum.PartType.Ball
+                TimeFreezeDome.Material = Enum.Material.ForceField
+                TimeFreezeDome.Color = COL_GOLD
+                TimeFreezeDome.Anchored = true
+                TimeFreezeDome.CanCollide = false
+                TimeFreezeDome.Size = Vector3.new(4, 4, 4)
+                TimeFreezeDome.Position = GetRoot().Position
+                TimeFreezeDome.Parent = FXFolder
+                TweenService:Create(TimeFreezeDome, TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Size = Vector3.new(180, 180, 180)
+                }):Play()
+            end
+
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer and GetRoot(plr) then
+                    GetRoot(plr).Anchored = true
+                end
+            end
+            Hub.Notify("👑 TIME FREEZE", "O tempo foi congelado na sua dimensão!", 3)
+        else
+            local cc = Lighting:FindFirstChild("RecexVIPTimeFreeze")
+            if cc then cc:Destroy() end
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer and GetRoot(plr) then
+                    GetRoot(plr).Anchored = false
+                end
+            end
+        end
+    end)
+
+    -- 18. Nuclear Effect
+    VIPTab:AddButton("18. Nuclear Effect (Detonação Atômica 3D)", "Gera clarão cegante, cogumelo atômico gigante e ondas de choque", function()
+        local myRoot = GetRoot()
+        if not myRoot then return end
+        local pos = myRoot.Position
+
+        Hub.Notify("☢️ NUCLEAR EFFECT", "Detonação termonuclear ativada!", 4)
+        PlaySFX("rbxassetid://9114221580", 1, 0.45)
+        ShakeCamera(3.2, 1.4)
+
+        -- Clarão Nuclear na Iluminação
+        local oldExp = Lighting.ExposureCompensation
+        Lighting.ExposureCompensation = 3.5
+        TweenService:Create(Lighting, TweenInfo.new(2.2), {ExposureCompensation = oldExp}):Play()
+
+        -- Coluna e Cogumelo Nuclear 3D
+        local stem = Instance.new("Part")
+        stem.Shape = Enum.PartType.Cylinder
+        stem.Material = Enum.Material.Neon
+        stem.Color = Color3.fromRGB(255, 140, 40)
+        stem.Anchored = true
+        stem.CanCollide = false
+        stem.Size = Vector3.new(10, 8, 8)
+        stem.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0)) * CFrame.Angles(0, 0, math.rad(90))
+        stem.Parent = FXFolder
+
+        local cap = Instance.new("Part")
+        cap.Shape = Enum.PartType.Ball
+        cap.Material = Enum.Material.Neon
+        cap.Color = COL_CRIMSON
+        cap.Anchored = true
+        cap.CanCollide = false
+        cap.Size = Vector3.new(12, 8, 12)
+        cap.Position = pos + Vector3.new(0, 12, 0)
+        cap.Parent = FXFolder
+
+        TweenService:Create(stem, TweenInfo.new(2.0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = Vector3.new(110, 26, 26),
+            Position = pos + Vector3.new(0, 55, 0),
+            Transparency = 1
+        }):Play()
+
+        TweenService:Create(cap, TweenInfo.new(2.0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = Vector3.new(130, 65, 130),
+            Position = pos + Vector3.new(0, 105, 0),
+            Transparency = 1
+        }):Play()
+
+        Create3DWave(pos, COL_GOLD, 240, 1.6, 5)
+        Create3DWave(pos, COL_CRIMSON, 180, 1.2, 3)
+
+        task.delay(2.1, function()
+            if stem.Parent then stem:Destroy() end
+            if cap.Parent then cap:Destroy() end
+        end)
+    end)
+
+    -- 19. Chaos Mode
+    local ChaosModeActive = false
+    VIPTab:AddToggle("19. Chaos Mode (Combate & Física Caótica)", "Combina pulsos gravitacionais, ondas de choque e ataques automáticos", false, function(state)
+        ChaosModeActive = state
+        if state then
+            Hub.Notify("👑 CHAOS MODE", "Modo Caos de Combate e Física ativado!", 3)
+        end
+    end)
+
+    -- 20. Apocalypse Mode
+    local ApocalypseActive = false
+    VIPTab:AddToggle("20. Apocalypse Mode (Céu Carmesim & Chuva de Fogo)", "Transforma o mapa no Apocalipse com meteoros e raios contínuos", false, function(state)
+        ApocalypseActive = state
+        if state then
+            local cc = Lighting:FindFirstChild("RecexApocalypse") or Instance.new("ColorCorrectionEffect", Lighting)
+            cc.Name = "RecexApocalypse"
+            cc.TintColor = Color3.fromRGB(255, 120, 120)
+            cc.Contrast = 0.35
+            Hub.Notify("🔥 APOCALYPSE MODE", "O Apocalipse começou no servidor!", 4)
+        else
+            local cc = Lighting:FindFirstChild("RecexApocalypse")
+            if cc then cc:Destroy() end
+        end
+    end)
+
+    -- 21. ULTIMATE CHAOS (O Botão Supremo que combina TUDO)
+    local UltimateChaosActive = false
+    VIPTab:AddToggle("21. ⚡ ULTIMATE CHAOS (PODER TOTAL SUPREMO)", "Ativa Overdrive + Furacão + Pilares + Clones + Explosões simultaneamente!", false, function(state)
+        UltimateChaosActive = state
+        if state then
+            PlaySFX("rbxassetid://9114221580", 1, 0.75)
+            ShakeCamera(2.0, 0.6)
+            Hub.Notify("👑 ULTIMATE CHAOS", "PODER MÁXIMO DO SOVEREIGN VIP LIBERADO!", 5)
+        end
+    end)
+
+    -- =========================================================================
+    -- LOOP CENTRAL DE EXECUÇÃO EM TEMPO REAL (60 FPS)
+    -- =========================================================================
+    local SpinAngle = 0
+    local LastChaosTick = 0
+    local LastTitanStep = Vector3.zero
+
+    RunService.RenderStepped:Connect(function(dt)
+        SpinAngle += dt * 8
+        local myRoot = GetRoot()
+        local myHum = GetHum()
+        if not myRoot or not myHum then return end
+
+        -- [1] Zero Cooldown
+        if ZeroCDActive and LocalPlayer.Character then
+            for _, item in ipairs(LocalPlayer.Character:GetDescendants()) do
+                if item:IsA("Tool") then
+                    item.Enabled = true
+                elseif item:IsA("NumberValue") or item:IsA("IntValue") then
+                    local n = item.Name:lower()
+                    if n:find("cooldown") or n:find("cd") or n:find("reload") or n:find("delay") then
+                        item.Value = 0
+                    end
+                elseif item:IsA("BoolValue") then
+                    local n = item.Name:lower()
+                    if n:find("debounce") or n:find("cooldown") or n:find("busy") or n:find("stun") then
+                        item.Value = false
                     end
                 end
             end
         end
 
-        -- 2. Aim Assist Suave VIP
-        if AimAssistVIP and bestTarget and bestTarget.Character and bestTarget.Character:FindFirstChild("Head") then
-            local targetPos = bestTarget.Character.Head.Position
-            local goalCF = CFrame.new(Camera.CFrame.Position, targetPos)
-            Camera.CFrame = Camera.CFrame:Lerp(goalCF, AimSmoothness)
+        -- [2] Overdrive Lock
+        if OverdriveActive then
+            if myHum.WalkSpeed < 65 then myHum.WalkSpeed = 65 end
+            local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            if tool then tool:Activate() end
         end
 
-        -- 3. Atualiza Target HUD VIP
-        if TargetHUDEnabled and TargetCard then
-            if bestTarget and bestTarget.Character then
-                TargetCard.Visible = true
-                local tHum = GetHum(bestTarget)
-                local tRoot = GetRoot(bestTarget)
-                local hpRatio = (tHum and tHum.MaxHealth > 0) and math.clamp(tHum.Health / tHum.MaxHealth, 0, 1) or 1
-                local studs = (myRoot and tRoot) and math.floor((tRoot.Position - myRoot.Position).Magnitude) or 0
-
-                TargetNameLbl.Text = "👑 " .. bestTarget.DisplayName
-                TargetDistLbl.Text = string.format("HP: %d%%  •  Distância: %dm", math.floor(hpRatio * 100), studs)
-                TargetHPBar.Size = TargetHPBar.Size:Lerp(UDim2.new(hpRatio, 0, 1, 0), dt * 12)
-
-                if LastAvatarId ~= bestTarget.UserId then
-                    LastAvatarId = bestTarget.UserId
-                    TargetAvatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(bestTarget.UserId) .. "&w=150&h=150"
+        -- [3] Titan Mode Armor & Heavy Steps
+        if TitanActive then
+            for _, pair in ipairs(TitanParts) do
+                if pair.Armor and pair.Limb and pair.Limb.Parent then
+                    pair.Armor.CFrame = pair.Limb.CFrame
                 end
-            else
-                TargetCard.Visible = false
+            end
+            if (myRoot.Position - LastTitanStep).Magnitude > 8 then
+                LastTitanStep = myRoot.Position
+                Create3DWave(myRoot.Position - Vector3.new(0, 4, 0), COL_GOLD, 18, 0.4, 0.5)
+                ShakeCamera(0.35, 0.08)
             end
         end
 
-        -- 4. Atualiza Halo Imperial & Mecha 3D
-        if myRoot then
-            local halo = VIPFolder:FindFirstChild("SovereignHalo")
-            if halo then
-                halo.CFrame = CFrame.new(myRoot.Position + Vector3.new(0, 3.8, 0)) * CFrame.Angles(math.rad(15), tick() * 2, math.rad(90))
+        -- [8] Target Cyclone
+        if TargetCycloneActive then
+            local enemy = GetClosestEnemy()
+            if enemy and GetRoot(enemy) then
+                local ePos = GetRoot(enemy).Position
+                local offset = Vector3.new(math.cos(SpinAngle * 2) * 8, math.sin(SpinAngle) * 3 + 2, math.sin(SpinAngle * 2) * 8)
+                myRoot.CFrame = CFrame.lookAt(ePos + offset, ePos)
+                if math.random(1, 4) == 1 then
+                    Create3DWave(ePos, COL_CRIMSON, 16, 0.3, 0.4)
+                end
+            end
+        end
+
+        -- [9] Cyclone Attack (Furacão Pessoal 3D)
+        if SelfCycloneActive or UltimateChaosActive then
+            if math.random(1, 3) == 1 then
+                local h = math.random(-2, 8)
+                Create3DWave(myRoot.Position + Vector3.new(0, h, 0), (h % 2 == 0) and COL_GOLD or COL_CRIMSON, 18 + h * 1.5, 0.28, 0.35)
+            end
+            for _, p in ipairs(workspace:GetChildren()) do
+                if p:IsA("BasePart") and not p.Anchored and (p.Position - myRoot.Position).Magnitude < 45 then
+                    local tang = Vector3.new(-math.sin(SpinAngle), 0.5, math.cos(SpinAngle))
+                    p.AssemblyLinearVelocity = tang * 140
+                end
+            end
+        end
+
+        -- [19, 20, 21] Chaos Mode, Apocalypse Mode & Ultimate Chaos (Pulsos Automáticos)
+        if (ChaosModeActive or ApocalypseActive or UltimateChaosActive) and (tick() - LastChaosTick > 0.45) then
+            LastChaosTick = tick()
+
+            if ChaosModeActive or UltimateChaosActive then
+                Create3DWave(myRoot.Position - Vector3.new(0, 2.5, 0), COL_CRIMSON, 42, 0.5, 0.8)
+                local enemy = GetClosestEnemy()
+                if enemy and GetRoot(enemy) then
+                    CreateEnergySphere(GetRoot(enemy).Position, COL_GOLD, 2, 16, 0.35)
+                end
             end
 
-            if MechaActive and MechaModel then
-                local baseCF = myRoot.CFrame
-                local chest = MechaModel:FindFirstChild("Chest")
-                local core = MechaModel:FindFirstChild("ReactorCore")
-                local lSh = MechaModel:FindFirstChild("LeftShoulder")
-                local rSh = MechaModel:FindFirstChild("RightShoulder")
-                local head = MechaModel:FindFirstChild("VisorHead")
+            if ApocalypseActive or UltimateChaosActive then
+                local randPos = myRoot.Position + Vector3.new(math.random(-55, 55), 0, math.random(-55, 55))
+                local beam = Instance.new("Part")
+                beam.Shape = Enum.PartType.Cylinder
+                beam.Size = Vector3.new(140, 4, 4)
+                beam.Material = Enum.Material.Neon
+                beam.Color = (math.random(1, 2) == 1) and COL_CRIMSON or COL_GOLD
+                beam.Anchored = true
+                beam.CanCollide = false
+                beam.CFrame = CFrame.new(randPos + Vector3.new(0, 70, 0)) * CFrame.Angles(0, 0, math.rad(90))
+                beam.Parent = FXFolder
 
-                if chest and core and lSh and rSh and head then
-                    chest.CFrame = baseCF * CFrame.new(0, 3, 2.5)
-                    core.CFrame = baseCF * CFrame.new(0, 3.5, 2.5)
-                    lSh.CFrame = baseCF * CFrame.new(-6, 6.5, 2.5)
-                    rSh.CFrame = baseCF * CFrame.new(6, 6.5, 2.5)
-                    head.CFrame = baseCF * CFrame.new(0, 10, 2.5)
-                end
+                Create3DWave(randPos, beam.Color, 24, 0.45, 0.6)
+                TweenService:Create(beam, TweenInfo.new(0.4), {Transparency = 1, Size = Vector3.new(140, 0.1, 0.1)}):Play()
+                task.delay(0.4, function() if beam.Parent then beam:Destroy() end end)
             end
         end
     end)
