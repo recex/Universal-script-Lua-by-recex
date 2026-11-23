@@ -1,4 +1,4 @@
--- [[ RECEX HUB — GITHUB MODULAR LOADER ]] --
+-- [[ RECEX HUB — GITHUB MODULAR LOADER (V2 LO-FI EDITION) ]] --
 -- [[ Made by recex ]] --
 
 local GITHUB_USER = "recex"
@@ -25,7 +25,7 @@ local function Import(path)
     return func()
 end
 
--- 1. Carrega a Intro 3D e a Biblioteca de UI da pasta Core/
+-- 1. Carrega a Intro 3D e a Biblioteca de UI (Lo-Fi Edition) da pasta Core/
 local PlayIntro3D   = Import("Core/Intro3D.lua")
 local CreateRecexUI = Import("Core/UILibrary.lua")
 
@@ -34,7 +34,7 @@ if PlayIntro3D and CreateRecexUI then
     PlayIntro3D(function()
         local Hub = CreateRecexUI()
 
-        -- Cria as Abas Oficiais
+        -- Cria as Abas Principais
         local Tabs = {
             Inicio    = Hub:CreateTab("Início"),
             Universal = Hub:CreateTab("Universal"),
@@ -42,17 +42,34 @@ if PlayIntro3D and CreateRecexUI then
             Recex     = Hub:CreateTab("Scripts Recex")
         }
 
-        -- Aba Início padrão
-        Tabs.Inicio:AddSection("Informações do Repositório")
-        Tabs.Inicio:AddButton("Testar Conexão GitHub", "Verifica se os módulos estão sincronizados", function()
-            Hub.Notify("GitHub Sync", "Todos os módulos do Recex Hub estão atualizados!", 4)
+        -- Conteúdo da Aba Início
+        Tabs.Inicio:AddSection("Bem-vindo ao Recex Hub")
+
+        Tabs.Inicio:AddButton("Verificar Sincronização GitHub", "Testa se todos os módulos estão atualizados", function()
+            Hub.Notify("GitHub Sync", "Todos os módulos do Recex Hub estão online e atualizados!", 3.5)
         end)
 
-        -- 2. Carrega os nossos Scripts da pasta Modules/
+        Tabs.Inicio:AddButton("Copiar Loadstring Oficial", "Copia o código de execução do Recex Hub para sua área de transferência", function()
+            if setclipboard then
+                setclipboard('loadstring(game:HttpGet("https://raw.githubusercontent.com/recex/Universal-script-Lua-by-recex/main/Loader.lua", true))()')
+                Hub.Notify("Copiado!", "O Loadstring do Recex Hub foi copiado!", 3)
+            else
+                Hub.Notify("Aviso", "Seu executor não suporta a função setclipboard.", 3)
+            end
+        end)
+
+        Tabs.Inicio:AddSection("Atalhos Rápidos")
+
+        Tabs.Inicio:AddButton("Como usar a Rádio Lo-Fi", "Clique esquerdo no botão Lo-Fi pausa • Clique direito troca de música", function()
+            Hub.Notify("Rádio Lo-Fi", "Use o botão '♪ Lo-Fi' na barra superior do Hub!", 3.5)
+        end)
+
+        -- 2. Carrega todos os nossos Scripts da pasta Modules/ na ordem certa
         local ModulesToLoad = {
             "Modules/Universal.lua",
             "Modules/Visuals.lua",
-            "Modules/RecexScripts.lua"
+            "Modules/RecexScripts.lua",
+            "Modules/Hubs.lua"
         }
 
         for _, modPath in ipairs(ModulesToLoad) do
@@ -64,6 +81,6 @@ if PlayIntro3D and CreateRecexUI then
             end)
         end
 
-        Hub.Notify("Recex Hub", "Carregado via GitHub! Made by recex", 5)
+        Hub.Notify("Recex Hub", "Todos os módulos foram carregados! Made by recex", 4)
     end)
 end
