@@ -1,375 +1,507 @@
---[[
-    RECEX HUB - MINI-HUB LAUNCHER (SELETOR GRÁTIS VS. PAGO + API VALIDATOR)
-    made by recex
-]]
+-- ==============================================================================
+-- 🔐 CORE: Core/SelectorHub.lua (DUAL KEY SYSTEM: FREE 24H SITE + DISCORD VIP BOT)
+-- Exige Key tanto na Edição Free (Site 24h) quanto na Edição VIP (Bot Discord/Cloud)
+-- ==============================================================================
 
-local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
-local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
--- URL da sua API de Membros VIP no GitHub (Vamos criar esse arquivo ou usar a lista embutida + nuvem)
-local VIP_API_URL = "https://raw.githubusercontent.com/recex/Universal-script-Lua-by-recex/main/VIP_API.json"
+-- 🌐 CONFIGURAÇÃO DOS LINKS (Site Oficial + API do Bot no GitHub)
+local KEY_SITE_URL      = "https://recex.github.io/Universal-script-Lua-by-recex/"
+local DISCORD_INVITE    = "https://discord.gg/recexhub" -- Troque pelo convite do seu Discord
+local CLOUD_VIP_API_URL = "https://raw.githubusercontent.com/recex/Universal-script-Lua-by-recex/main/VIP_API.json"
 
--- Lista Mestre de Segurança (Você é reconhecido como DONO automaticamente + Keys VIP)
-local MasterVIPDatabase = {
-    Owners = {
-        ["recex"] = true,
-        [tostring(LocalPlayer.UserId)] = false -- Você também pode colocar seu UserId aqui!
-    },
-    AuthorizedUsers = {
-        -- Exemplo: ["123456789"] = "Vitalício (Discord Ticket)"
-    },
-    AuthorizedKeys = {
-        ["RECEX-VIP-2025"]    = "Plano Vitalício (Lifetime)",
-        ["RECEX-SOVEREIGN-1"] = "Membro Fundador VIP",
-        ["RECEX-PRO-777"]     = "Assinatura VIP Mensal"
-    }
+local SAVED_FREE_FILE = "RecexHub_FreeKey.txt"
+local SAVED_VIP_FILE  = "RecexHub_VIPKey.txt"
+
+-- ==============================================================================
+-- 🔑 1. MOTOR CRIPTOGRÁFICO (SINCRONIZADO COM O SITE E COM O BOT DO DISCORD)
+-- ==============================================================================
+
+-- Algoritmo interno usado pelo Site e pelo Hub para validar Keys Free de 24h por UserId
+local function GenerateDailyFreeKey(userId, dayOffset)
+    local utcDay = math.floor(os.time() / 86400) + (dayOffset or 0)
+    local seedStr = "RECEX_FREE_SECRET_2025_" .. tostring(userId) .. "_" .. tostring(utcDay)
+    local h1 = 5381
+    local h2 = 52711
+    for i = 1, #seedStr do
+        local b = string.byte(seedStr, i)
+        h1 = ((h1 * 33) + b) % 99999999
+        h2 = ((h2 * 131) + b) % 99999999
+    end
+    return string.format("RXFREE-%06X-%06X", h1, h2)
+end
+
+-- Hash de Assinatura de Sessão VIP
+local function RecexSign(str)
+    str = tostring(str or "")
+    local h = 2166136261
+    for i = 1, #str do
+        h = ((h + string.byte(str, i)) * 16777619) % 4294967295
+    end
+    return string.format("RXSIG-%08X", h)
+end
+
+-- Anti-Spoof de Identidade na Roblox
+local function VerifyIdentity()
+    local uid = LocalPlayer.UserId
+    local uname = LocalPlayer.Name
+    if uid <= 0 then return false, "Conta inválida" end
+    if LocalPlayer.CharacterAppearanceId > 0 and LocalPlayer.CharacterAppearanceId ~= uid then
+        return false, "Spoof de UserId detectado!"
+    end
+    local ok, realId = pcall(function()
+        return Players:GetUserIdFromNameAsync(uname)
+    end)
+    if ok and realId and realId ~= uid then
+        return false, "Spoof de Nome/ID detectado!"
+    end
+    return true, uid, uname:lower()
+end
+
+-- Dono / Founder (Acesso direto ou bypass de teste)
+local FounderBypass = {
+    ["recex"] = "👑 FOUNDER / DONO"
 }
 
-local KEY_FILE = "RecexVIP_SavedAuth.txt"
-
-local function PlayUIEffect(id, vol, speed)
-    local s = Instance.new("Sound")
-    s.SoundId = id
-    s.Volume = vol or 0.45
-    s.PlaybackSpeed = speed or 1
-    s.Parent = SoundService
-    s:Play()
-    task.delay(2.5, function() s:Destroy() end)
-end
-
--- Consulta a API na Nuvem em tempo real para ver se o comprador foi aceito no Discord
-local function VerifyUserInCloud(inputKey)
-    local userIdStr = tostring(LocalPlayer.UserId)
-    local userNameLower = LocalPlayer.Name:lower()
-
-    -- 1. Verifica se é o Dono (recex)
-    if MasterVIPDatabase.Owners[userNameLower] or MasterVIPDatabase.Owners[userIdStr] then
-        return true, "👑 FOUNDER / DONO", "Acesso Vitalício de Criador"
+local function RunSelectorHub(OnSelectFree, OnSelectVIP)
+    local SafeParent = (gethui and gethui()) or CoreGui
+    if SafeParent:FindFirstChild("RecexDualKeyGUI") then
+        SafeParent.RecexDualKeyGUI:Destroy()
     end
 
-    -- 2. Consulta o arquivo VIP_API.json na nuvem (para aprovar clientes sem mexer no script)
-    local ok, rawJson = pcall(function()
-        return game:HttpGet(VIP_API_URL .. "?t=" .. tostring(os.time()), true)
-    end)
-
-    if ok and type(rawJson) == "string" and #rawJson > 5 and rawJson:sub(1, 3) ~= "404" then
-        local decodeOk, cloudData = pcall(function()
-            return HttpService:JSONDecode(rawJson)
-        end)
-        if decodeOk and type(cloudData) == "table" then
-            if cloudData.Users and cloudData.Users[userIdStr] then
-                return true, "💎 VIP AUTORIZADO (ID)", cloudData.Users[userIdStr]
-            end
-            if cloudData.Users and cloudData.Users[userNameLower] then
-                return true, "💎 VIP AUTORIZADO (NICK)", cloudData.Users[userNameLower]
-            end
-            if inputKey and #inputKey > 0 and cloudData.Keys and cloudData.Keys[inputKey] then
-                return true, "💎 VIP AUTORIZADO (KEY)", cloudData.Keys[inputKey]
-            end
-        end
-    end
-
-    -- 3. Verifica no banco local do script
-    if MasterVIPDatabase.AuthorizedUsers[userIdStr] then
-        return true, "💎 VIP AUTORIZADO", MasterVIPDatabase.AuthorizedUsers[userIdStr]
-    end
-    if inputKey and #inputKey > 0 and MasterVIPDatabase.AuthorizedKeys[inputKey] then
-        return true, "💎 VIP AUTORIZADO", MasterVIPDatabase.AuthorizedKeys[inputKey]
-    end
-
-    return false, "Não Autorizado", nil
-end
-
-local function OpenRecexLauncher(callbacks)
-    -- callbacks.OnSelectFree() -> Inicia o Hub Grátis
-    -- callbacks.OnSelectVIP(vipData) -> Inicia a Transição VIP + Hub Pago
-
-    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-    local old = PlayerGui:FindFirstChild("RecexSelectorLauncher")
-    if old then old:Destroy() end
-
-    -- Desfoque elegante no fundo enquanto escolhe
     local Blur = Instance.new("BlurEffect")
-    Blur.Name = "RecexLauncherBlur"
+    Blur.Name = "RecexKeyBlur"
     Blur.Size = 0
     Blur.Parent = Lighting
-    TweenService:Create(Blur, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = 18}):Play()
+    TweenService:Create(Blur, TweenInfo.new(0.5), {Size = 18}):Play()
 
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "RecexSelectorLauncher"
-    ScreenGui.IgnoreGuiInset = true
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = PlayerGui
+    local Gui = Instance.new("ScreenGui")
+    Gui.Name = "RecexDualKeyGUI"
+    Gui.ResetOnSpawn = false
+    Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    Gui.Parent = SafeParent
 
-    -- Janela do Mini-Hub Seletor
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 460, 0, 290)
-    MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(11, 12, 17)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Parent = ScreenGui
+    -- Frame Principal
+    local Main = Instance.new("Frame")
+    Main.Size = UDim2.new(0, 540, 0, 350)
+    Main.Position = UDim2.new(0.5, -270, 0.5, -175)
+    Main.BackgroundColor3 = Color3.fromRGB(11, 11, 16)
+    Main.BorderSizePixel = 0
+    Main.Parent = Gui
+    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
 
-    local UIScale = Instance.new("UIScale")
-    UIScale.Scale = 0.75
-    UIScale.Parent = MainFrame
+    local MainStroke = Instance.new("UIStroke", Main)
+    MainStroke.Color = Color3.fromRGB(255, 200, 60)
+    MainStroke.Thickness = 1.5
+    MainStroke.Transparency = 0.2
 
-    local MainCorner = Instance.new("UICorner")
-    MainCorner.CornerRadius = UDim.new(0, 14)
-    MainCorner.Parent = MainFrame
+    -- Topo / Cabeçalho
+    local Title = Instance.new("TextLabel", Main)
+    Title.Size = UDim2.new(1, -190, 0, 26)
+    Title.Position = UDim2.new(0, 18, 0, 12)
+    Title.BackgroundTransparency = 1
+    Title.Text = "🔐 RECEX AUTHENTICATION SYSTEM"
+    Title.Font = Enum.Font.GothamBlack
+    Title.TextSize = 15
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextXAlignment = Enum.TextXAlignment.Left
 
-    local MainStroke = Instance.new("UIStroke")
-    MainStroke.Thickness = 1.8
-    MainStroke.Color = Color3.fromRGB(255, 255, 255)
-    MainStroke.Parent = MainFrame
+    local SubTitle = Instance.new("TextLabel", Main)
+    SubTitle.Size = UDim2.new(1, -190, 0, 18)
+    SubTitle.Position = UDim2.new(0, 18, 0, 35)
+    SubTitle.BackgroundTransparency = 1
+    SubTitle.Text = "Seu Roblox UserId: " .. tostring(LocalPlayer.UserId) .. "  •  Conectado ao Site & Bot Discord"
+    SubTitle.Font = Enum.Font.GothamMedium
+    SubTitle.TextSize = 11
+    SubTitle.TextColor3 = Color3.fromRGB(160, 165, 185)
+    SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 
-    local StrokeGrad = Instance.new("UIGradient")
-    StrokeGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(245, 195, 70)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(225, 45, 85)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 80, 255))
-    })
-    StrokeGrad.Parent = MainStroke
-
-    PlayUIEffect("rbxassetid://6895079853", 0.45, 0.95)
-    TweenService:Create(UIScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
-
-    -- Título do Mini-Hub
-    local TopBadge = Instance.new("TextLabel")
-    TopBadge.Size = UDim2.new(1, -40, 0, 22)
-    TopBadge.Position = UDim2.new(0, 20, 0, 14)
-    TopBadge.BackgroundTransparency = 1
-    TopBadge.Text = "⚡ RECEX STUDIO LAUNCHER • ESCOLHA SUA EDIÇÃO"
-    TopBadge.TextColor3 = Color3.fromRGB(245, 195, 70)
-    TopBadge.Font = Enum.Font.GothamBlack
-    TopBadge.TextSize = 13
-    TopBadge.TextXAlignment = Enum.TextXAlignment.Left
-    TopBadge.Parent = MainFrame
-
-    local SubDesc = Instance.new("TextLabel")
-    SubDesc.Size = UDim2.new(1, -40, 0, 16)
-    SubDesc.Position = UDim2.new(0, 20, 0, 34)
-    SubDesc.BackgroundTransparency = 1
-    SubDesc.Text = "Bem-vindo, " .. LocalPlayer.DisplayName .. " (ID: " .. tostring(LocalPlayer.UserId) .. ")"
-    SubDesc.TextColor3 = Color3.fromRGB(150, 155, 175)
-    SubDesc.Font = Enum.Font.GothamMedium
-    SubDesc.TextSize = 11
-    SubDesc.TextXAlignment = Enum.TextXAlignment.Left
-    SubDesc.Parent = MainFrame
-
-    -- =========================================================================
-    -- CARD ESQUERDO: EDIÇÃO GRÁTIS (NORMAL)
-    -- =========================================================================
-    local FreeCard = Instance.new("Frame")
-    FreeCard.Size = UDim2.new(0, 195, 0, 210)
-    FreeCard.Position = UDim2.new(0, 20, 0, 62)
-    FreeCard.BackgroundColor3 = Color3.fromRGB(17, 19, 27)
-    FreeCard.BorderSizePixel = 0
-    FreeCard.Parent = MainFrame
-
-    Instance.new("UICorner", FreeCard).CornerRadius = UDim.new(0, 10)
-    local FreeStroke = Instance.new("UIStroke", FreeCard)
-    FreeStroke.Color = Color3.fromRGB(60, 65, 90)
-    FreeStroke.Thickness = 1.2
-
-    local FreeTitle = Instance.new("TextLabel")
-    FreeTitle.Size = UDim2.new(1, -20, 0, 22)
-    FreeTitle.Position = UDim2.new(0, 10, 0, 14)
-    FreeTitle.BackgroundTransparency = 1
-    FreeTitle.Text = "🆓 EDIÇÃO GRÁTIS"
-    FreeTitle.TextColor3 = Color3.fromRGB(235, 240, 255)
-    FreeTitle.Font = Enum.Font.GothamBlack
-    FreeTitle.TextSize = 13
-    FreeTitle.Parent = FreeCard
-
-    local FreeFeatures = Instance.new("TextLabel")
-    FreeFeatures.Size = UDim2.new(1, -24, 0, 110)
-    FreeFeatures.Position = UDim2.new(0, 12, 0, 42)
-    FreeFeatures.BackgroundTransparency = 1
-    FreeFeatures.Text = "• Intro 3D Santuário\n• 40 Scripts Recex\n• Spotify 200 Músicas\n• Shaders RTX & Parkour\n• Veículos & Auto-Farm\n• Acesso 100% Livre"
-    FreeFeatures.TextColor3 = Color3.fromRGB(160, 165, 185)
-    FreeFeatures.Font = Enum.Font.GothamMedium
-    FreeFeatures.TextSize = 10
-    FreeFeatures.TextXAlignment = Enum.TextXAlignment.Left
-    FreeFeatures.TextYAlignment = Enum.TextYAlignment.Top
-    FreeFeatures.Parent = FreeCard
-
-    local LaunchFreeBtn = Instance.new("TextButton")
-    LaunchFreeBtn.Size = UDim2.new(1, -24, 0, 36)
-    LaunchFreeBtn.Position = UDim2.new(0, 12, 1, -48)
-    LaunchFreeBtn.BackgroundColor3 = Color3.fromRGB(45, 50, 72)
-    LaunchFreeBtn.Text = "ABRIR HUB GRÁTIS"
-    LaunchFreeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    LaunchFreeBtn.Font = Enum.Font.GothamBlack
-    LaunchFreeBtn.TextSize = 11
-    LaunchFreeBtn.Parent = FreeCard
-    Instance.new("UICorner", LaunchFreeBtn).CornerRadius = UDim.new(0, 8)
-
-    -- =========================================================================
-    -- CARD DIREITO: EDIÇÃO VIP PAGA (SOVEREIGN VIP)
-    -- =========================================================================
-    local VIPCard = Instance.new("Frame")
-    VIPCard.Size = UDim2.new(0, 210, 0, 210)
-    VIPCard.Position = UDim2.new(1, -230, 0, 62)
-    VIPCard.BackgroundColor3 = Color3.fromRGB(20, 14, 22)
-    VIPCard.BorderSizePixel = 0
-    VIPCard.Parent = MainFrame
-
-    Instance.new("UICorner", VIPCard).CornerRadius = UDim.new(0, 10)
-    local VIPStroke = Instance.new("UIStroke", VIPCard)
-    VIPStroke.Color = Color3.fromRGB(225, 45, 85)
-    VIPStroke.Thickness = 1.5
-
-    local VIPTitle = Instance.new("TextLabel")
-    VIPTitle.Size = UDim2.new(1, -20, 0, 22)
-    VIPTitle.Position = UDim2.new(0, 10, 0, 12)
-    VIPTitle.BackgroundTransparency = 1
-    VIPTitle.Text = "👑 SOVEREIGN VIP"
-    VIPTitle.TextColor3 = Color3.fromRGB(245, 195, 70)
-    VIPTitle.Font = Enum.Font.GothamBlack
-    VIPTitle.TextSize = 13
-    VIPTitle.Parent = VIPCard
-
-    local VIPSub = Instance.new("TextLabel")
-    VIPSub.Size = UDim2.new(1, -20, 0, 32)
-    VIPSub.Position = UDim2.new(0, 10, 0, 34)
-    VIPSub.BackgroundTransparency = 1
-    VIPSub.Text = "Transição 3D Buraco Negro + Aimbot FOV + Morph Skin + Anti-Mod"
-    VIPSub.TextColor3 = Color3.fromRGB(215, 180, 195)
-    VIPSub.Font = Enum.Font.GothamMedium
-    VIPSub.TextSize = 9
-    VIPSub.TextWrapped = true
-    VIPSub.Parent = VIPCard
-
-    -- Campo de Key VIP (ou validação por ID do Discord)
-    local savedKey = ""
-    if isfile and readfile then
-        pcall(function()
-            if isfile(KEY_FILE) then savedKey = readfile(KEY_FILE) end
-        end)
-    end
-
-    local KeyInput = Instance.new("TextBox")
-    KeyInput.Size = UDim2.new(1, -24, 0, 30)
-    KeyInput.Position = UDim2.new(0, 12, 0, 72)
-    KeyInput.BackgroundColor3 = Color3.fromRGB(12, 10, 15)
-    KeyInput.Text = savedKey
-    KeyInput.PlaceholderText = "Key VIP (ou vazio se aprovado por ID)"
-    KeyInput.PlaceholderColor3 = Color3.fromRGB(115, 105, 120)
-    KeyInput.TextColor3 = Color3.fromRGB(245, 195, 70)
-    KeyInput.Font = Enum.Font.GothamBold
-    KeyInput.TextSize = 10
-    KeyInput.ClearTextOnFocus = false
-    KeyInput.Parent = VIPCard
-    Instance.new("UICorner", KeyInput).CornerRadius = UDim.new(0, 6)
-
-    -- Botão Copiar ID para mandar no Discord
-    local CopyIDBtn = Instance.new("TextButton")
-    CopyIDBtn.Size = UDim2.new(1, -24, 0, 24)
-    CopyIDBtn.Position = UDim2.new(0, 12, 0, 108)
-    CopyIDBtn.BackgroundColor3 = Color3.fromRGB(32, 24, 38)
-    CopyIDBtn.Text = "📋 Copiar Meu ID p/ Discord"
-    CopyIDBtn.TextColor3 = Color3.fromRGB(200, 185, 225)
+    -- Botão Copiar UserId (Para colar no Site ou no Bot do Discord)
+    local CopyIDBtn = Instance.new("TextButton", Main)
+    CopyIDBtn.Size = UDim2.new(0, 160, 0, 28)
+    CopyIDBtn.Position = UDim2.new(1, -176, 0, 16)
+    CopyIDBtn.BackgroundColor3 = Color3.fromRGB(24, 26, 38)
+    CopyIDBtn.Text = "📋 Copiar Meu UserId"
     CopyIDBtn.Font = Enum.Font.GothamBold
-    CopyIDBtn.TextSize = 9
-    CopyIDBtn.Parent = VIPCard
-    Instance.new("UICorner", CopyIDBtn).CornerRadius = UDim.new(0, 6)
+    CopyIDBtn.TextSize = 10
+    CopyIDBtn.TextColor3 = Color3.fromRGB(255, 215, 75)
+    Instance.new("UICorner", CopyIDBtn).CornerRadius = UDim.new(0, 8)
 
-    local VIPStatus = Instance.new("TextLabel")
-    VIPStatus.Size = UDim2.new(1, -16, 0, 18)
-    VIPStatus.Position = UDim2.new(0, 8, 0, 138)
-    VIPStatus.BackgroundTransparency = 1
-    VIPStatus.Text = "Verificação via Discord / Cloud API"
-    VIPStatus.TextColor3 = Color3.fromRGB(150, 145, 165)
-    VIPStatus.Font = Enum.Font.GothamMedium
-    VIPStatus.TextSize = 9
-    VIPStatus.Parent = VIPCard
-
-    local LaunchVIPBtn = Instance.new("TextButton")
-    LaunchVIPBtn.Size = UDim2.new(1, -24, 0, 36)
-    LaunchVIPBtn.Position = UDim2.new(0, 12, 1, -48)
-    LaunchVIPBtn.BackgroundColor3 = Color3.fromRGB(225, 45, 85)
-    LaunchVIPBtn.Text = "💎 ENTRAR NO VIP PAGO"
-    LaunchVIPBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    LaunchVIPBtn.Font = Enum.Font.GothamBlack
-    LaunchVIPBtn.TextSize = 11
-    LaunchVIPBtn.Parent = VIPCard
-    Instance.new("UICorner", LaunchVIPBtn).CornerRadius = UDim.new(0, 8)
-
-    -- =========================================================================
-    -- AÇÕES DOS BOTÕES DO SELETOR
-    -- =========================================================================
     CopyIDBtn.MouseButton1Click:Connect(function()
-        local passport = string.format("Nick: %s | UserId: %s", LocalPlayer.Name, tostring(LocalPlayer.UserId))
         if setclipboard then
-            setclipboard(passport)
-            VIPStatus.Text = "✅ ID copiado! Envie no Discord do recex."
-            VIPStatus.TextColor3 = Color3.fromRGB(245, 195, 70)
+            setclipboard(tostring(LocalPlayer.UserId))
+            CopyIDBtn.Text = "✅ ID Copiado: " .. tostring(LocalPlayer.UserId)
+            task.delay(1.5, function()
+                if CopyIDBtn and CopyIDBtn.Parent then
+                    CopyIDBtn.Text = "📋 Copiar Meu UserId"
+                end
+            end)
         end
     end)
 
-    local function CloseSelectorAndRun(nextCallback)
-        TweenService:Create(UIScale, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale = 0}):Play()
-        TweenService:Create(Blur, TweenInfo.new(0.35), {Size = 0}):Play()
-        task.wait(0.35)
-        Blur:Destroy()
-        ScreenGui:Destroy()
-        nextCallback()
+    -- ==========================================================================
+    -- 🌐 COLUNA ESQUERDA: FREE EDITION (KEY 24H PELO SITE / DISCORD)
+    -- ==========================================================================
+    local FreeCard = Instance.new("Frame", Main)
+    FreeCard.Size = UDim2.new(0, 244, 0, 265)
+    FreeCard.Position = UDim2.new(0, 18, 0, 66)
+    FreeCard.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+    Instance.new("UICorner", FreeCard).CornerRadius = UDim.new(0, 12)
+
+    local FreeStroke = Instance.new("UIStroke", FreeCard)
+    FreeStroke.Color = Color3.fromRGB(65, 135, 255)
+    FreeStroke.Thickness = 1.3
+    FreeStroke.Transparency = 0.3
+
+    local FreeTitle = Instance.new("TextLabel", FreeCard)
+    FreeTitle.Size = UDim2.new(1, -20, 0, 22)
+    FreeTitle.Position = UDim2.new(0, 12, 0, 12)
+    FreeTitle.BackgroundTransparency = 1
+    FreeTitle.Text = "🌐 FREE EDITION (KEY 24H)"
+    FreeTitle.Font = Enum.Font.GothamBlack
+    FreeTitle.TextSize = 13
+    FreeTitle.TextColor3 = Color3.fromRGB(100, 170, 255)
+    FreeTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+    local FreeInfo = Instance.new("TextLabel", FreeCard)
+    FreeInfo.Size = UDim2.new(1, -24, 0, 52)
+    FreeInfo.Position = UDim2.new(0, 12, 0, 36)
+    FreeInfo.BackgroundTransparency = 1
+    FreeInfo.Text = "• 10 Módulos + 40 Scripts Recex\n• Spotify 200 Músicas & Shaders RTX\n• Pegue sua Key gratuita no nosso Site!"
+    FreeInfo.Font = Enum.Font.GothamMedium
+    FreeInfo.TextSize = 10
+    FreeInfo.TextColor3 = Color3.fromRGB(185, 195, 215)
+    FreeInfo.TextXAlignment = Enum.TextXAlignment.Left
+    FreeInfo.TextYAlignment = Enum.TextYAlignment.Top
+    FreeInfo.TextWrapped = true
+
+    -- Input da Key Free
+    local FreeKeyBox = Instance.new("TextBox", FreeCard)
+    FreeKeyBox.Size = UDim2.new(1, -24, 0, 32)
+    FreeKeyBox.Position = UDim2.new(0, 12, 0, 94)
+    FreeKeyBox.BackgroundColor3 = Color3.fromRGB(10, 11, 16)
+    FreeKeyBox.PlaceholderText = "Cole sua Key Free (Ex: RXFREE-...)"
+    FreeKeyBox.Text = ""
+    FreeKeyBox.Font = Enum.Font.GothamBold
+    FreeKeyBox.TextSize = 10
+    FreeKeyBox.TextColor3 = Color3.fromRGB(130, 195, 255)
+    FreeKeyBox.PlaceholderColor3 = Color3.fromRGB(105, 110, 130)
+    FreeKeyBox.ClearTextOnFocus = false
+    Instance.new("UICorner", FreeKeyBox).CornerRadius = UDim.new(0, 7)
+
+    if isfile and readfile and isfile(SAVED_FREE_FILE) then
+        pcall(function() FreeKeyBox.Text = readfile(SAVED_FREE_FILE) end)
     end
 
-    -- Clicou no Hub Grátis
-    LaunchFreeBtn.MouseButton1Click:Connect(function()
-        PlayUIEffect("rbxassetid://6895079853", 0.5, 1.05)
-        CloseSelectorAndRun(function()
-            if callbacks.OnSelectFree then
-                callbacks.OnSelectFree()
-            end
-        end)
+    local FreeStatus = Instance.new("TextLabel", FreeCard)
+    FreeStatus.Size = UDim2.new(1, -24, 0, 24)
+    FreeStatus.Position = UDim2.new(0, 12, 0, 130)
+    FreeStatus.BackgroundTransparency = 1
+    FreeStatus.Text = "🔒 Digite sua Key Free para liberar."
+    FreeStatus.Font = Enum.Font.GothamBold
+    FreeStatus.TextSize = 10
+    FreeStatus.TextColor3 = Color3.fromRGB(160, 170, 190)
+    FreeStatus.TextXAlignment = Enum.TextXAlignment.Left
+    FreeStatus.TextWrapped = true
+
+    -- Botão Copiar Link do Site Gerador de Key
+    local GetSiteKeyBtn = Instance.new("TextButton", FreeCard)
+    GetSiteKeyBtn.Size = UDim2.new(1, -24, 0, 32)
+    GetSiteKeyBtn.Position = UDim2.new(0, 12, 0, 162)
+    GetSiteKeyBtn.BackgroundColor3 = Color3.fromRGB(28, 36, 58)
+    GetSiteKeyBtn.Text = "🌐 Pegar Key Free (Copiar Site)"
+    GetSiteKeyBtn.Font = Enum.Font.GothamBold
+    GetSiteKeyBtn.TextSize = 10
+    GetSiteKeyBtn.TextColor3 = Color3.fromRGB(135, 195, 255)
+    Instance.new("UICorner", GetSiteKeyBtn).CornerRadius = UDim.new(0, 8)
+
+    GetSiteKeyBtn.MouseButton1Click:Connect(function()
+        if setclipboard then
+            setclipboard(KEY_SITE_URL .. "?uid=" .. tostring(LocalPlayer.UserId))
+            FreeStatus.Text = "✅ Link do Site copiado! Abra no navegador."
+            FreeStatus.TextColor3 = Color3.fromRGB(100, 220, 255)
+        end
     end)
 
-    -- Clicou no Hub Pago (VIP)
-    LaunchVIPBtn.MouseButton1Click:Connect(function()
-        VIPStatus.Text = "⏳ Consultando API VIP..."
-        VIPStatus.TextColor3 = Color3.fromRGB(245, 195, 70)
+    -- Botão Verificar & Abrir Free Hub
+    local OpenFreeBtn = Instance.new("TextButton", FreeCard)
+    OpenFreeBtn.Size = UDim2.new(1, -24, 0, 38)
+    OpenFreeBtn.Position = UDim2.new(0, 12, 1, -50)
+    OpenFreeBtn.BackgroundColor3 = Color3.fromRGB(55, 120, 245)
+    OpenFreeBtn.Text = "VERIFICAR KEY & ABRIR FREE"
+    OpenFreeBtn.Font = Enum.Font.GothamBlack
+    OpenFreeBtn.TextSize = 10
+    OpenFreeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", OpenFreeBtn).CornerRadius = UDim.new(0, 8)
 
-        local typedKey = KeyInput.Text:gsub("^%s*(.-)%s*$", "%1")
-        local isApproved, roleTitle, planName = VerifyUserInCloud(typedKey)
+    -- ==========================================================================
+    -- 👑 COLUNA DIREITA: SOVEREIGN VIP (BOT DO DISCORD + CLOUD API)
+    -- ==========================================================================
+    local VIPCard = Instance.new("Frame", Main)
+    VIPCard.Size = UDim2.new(0, 244, 0, 265)
+    VIPCard.Position = UDim2.new(1, -262, 0, 66)
+    VIPCard.BackgroundColor3 = Color3.fromRGB(20, 17, 12)
+    Instance.new("UICorner", VIPCard).CornerRadius = UDim.new(0, 12)
 
-        if isApproved then
-            if writefile and #typedKey > 0 then
-                pcall(writefile, KEY_FILE, typedKey)
-            end
-            VIPStatus.Text = "✅ ACEITO: " .. roleTitle
-            VIPStatus.TextColor3 = Color3.fromRGB(60, 240, 130)
-            PlayUIEffect("rbxassetid://6895079853", 0.6, 1.15)
-            task.wait(0.4)
+    local VIPStroke = Instance.new("UIStroke", VIPCard)
+    VIPStroke.Color = Color3.fromRGB(255, 195, 50)
+    VIPStroke.Thickness = 1.5
+    VIPStroke.Transparency = 0.15
 
-            CloseSelectorAndRun(function()
-                if callbacks.OnSelectVIP then
-                    callbacks.OnSelectVIP({
-                        Role = roleTitle,
-                        Plan = planName
-                    })
-                end
+    local VIPTitle = Instance.new("TextLabel", VIPCard)
+    VIPTitle.Size = UDim2.new(1, -20, 0, 22)
+    VIPTitle.Position = UDim2.new(0, 12, 0, 12)
+    VIPTitle.BackgroundTransparency = 1
+    VIPTitle.Text = "👑 SOVEREIGN YARHM VIP"
+    VIPTitle.Font = Enum.Font.GothamBlack
+    VIPTitle.TextSize = 13
+    VIPTitle.TextColor3 = Color3.fromRGB(255, 210, 65)
+    VIPTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+    local VIPInfo = Instance.new("TextLabel", VIPCard)
+    VIPInfo.Size = UDim2.new(1, -24, 0, 52)
+    VIPInfo.Position = UDim2.new(0, 12, 0, 36)
+    VIPInfo.BackgroundTransparency = 1
+    VIPInfo.Text = "• Todas as Funções YARHM 1.20 (MM2/FTF)\n• Barra Rápida Flutuante & Anti-Fling\n• Ativação via Key VIP ou Bot do Discord!"
+    VIPInfo.Font = Enum.Font.GothamMedium
+    VIPInfo.TextSize = 10
+    VIPInfo.TextColor3 = Color3.fromRGB(225, 215, 190)
+    VIPInfo.TextXAlignment = Enum.TextXAlignment.Left
+    VIPInfo.TextYAlignment = Enum.TextYAlignment.Top
+    VIPInfo.TextWrapped = true
+
+    -- Input da Key VIP
+    local VIPKeyBox = Instance.new("TextBox", VIPCard)
+    VIPKeyBox.Size = UDim2.new(1, -24, 0, 32)
+    VIPKeyBox.Position = UDim2.new(0, 12, 0, 94)
+    VIPKeyBox.BackgroundColor3 = Color3.fromRGB(12, 10, 14)
+    VIPKeyBox.PlaceholderText = "Cole sua Key VIP (Ex: RXVIP-...)"
+    VIPKeyBox.Text = ""
+    VIPKeyBox.Font = Enum.Font.GothamBold
+    VIPKeyBox.TextSize = 10
+    VIPKeyBox.TextColor3 = Color3.fromRGB(255, 220, 100)
+    VIPKeyBox.PlaceholderColor3 = Color3.fromRGB(115, 110, 125)
+    VIPKeyBox.ClearTextOnFocus = false
+    Instance.new("UICorner", VIPKeyBox).CornerRadius = UDim.new(0, 7)
+
+    if isfile and readfile and isfile(SAVED_VIP_FILE) then
+        pcall(function() VIPKeyBox.Text = readfile(SAVED_VIP_FILE) end)
+    end
+
+    local VIPStatus = Instance.new("TextLabel", VIPCard)
+    VIPStatus.Size = UDim2.new(1, -24, 0, 24)
+    VIPStatus.Position = UDim2.new(0, 12, 0, 130)
+    VIPStatus.BackgroundTransparency = 1
+    VIPStatus.Text = "🔒 Digite sua Key VIP ou valide pelo ID."
+    VIPStatus.Font = Enum.Font.GothamBold
+    VIPStatus.TextSize = 10
+    VIPStatus.TextColor3 = Color3.fromRGB(190, 180, 160)
+    VIPStatus.TextXAlignment = Enum.TextXAlignment.Left
+    VIPStatus.TextWrapped = true
+
+    -- Botão Copiar Discord para Comprar / Resgatar no Bot
+    local GetDiscordBtn = Instance.new("TextButton", VIPCard)
+    GetDiscordBtn.Size = UDim2.new(1, -24, 0, 32)
+    GetDiscordBtn.Position = UDim2.new(0, 12, 0, 162)
+    GetDiscordBtn.BackgroundColor3 = Color3.fromRGB(42, 34, 20)
+    GetDiscordBtn.Text = "💬 Discord VIP & Bot (Copiar Link)"
+    GetDiscordBtn.Font = Enum.Font.GothamBold
+    GetDiscordBtn.TextSize = 10
+    GetDiscordBtn.TextColor3 = Color3.fromRGB(255, 215, 85)
+    Instance.new("UICorner", GetDiscordBtn).CornerRadius = UDim.new(0, 8)
+
+    GetDiscordBtn.MouseButton1Click:Connect(function()
+        if setclipboard then
+            setclipboard(DISCORD_INVITE)
+            VIPStatus.Text = "✅ Convite do Discord copiado!"
+            VIPStatus.TextColor3 = Color3.fromRGB(255, 220, 90)
+        end
+    end)
+
+    -- Botão Verificar & Abrir VIP Hub
+    local OpenVIPBtn = Instance.new("TextButton", VIPCard)
+    OpenVIPBtn.Size = UDim2.new(1, -24, 0, 38)
+    OpenVIPBtn.Position = UDim2.new(0, 12, 1, -50)
+    OpenVIPBtn.BackgroundColor3 = Color3.fromRGB(255, 195, 45)
+    OpenVIPBtn.Text = "VERIFICAR KEY & ABRIR VIP"
+    OpenVIPBtn.Font = Enum.Font.GothamBlack
+    OpenVIPBtn.TextSize = 10
+    OpenVIPBtn.TextColor3 = Color3.fromRGB(15, 15, 20)
+    Instance.new("UICorner", OpenVIPBtn).CornerRadius = UDim.new(0, 8)
+
+    -- Função para fechar o Launcher com transição suave
+    local function CloseLauncher()
+        TweenService:Create(Blur, TweenInfo.new(0.4), {Size = 0}):Play()
+        task.delay(0.45, function()
+            if Blur and Blur.Parent then Blur:Destroy() end
+        end)
+        Gui:Destroy()
+    end
+
+    -- Helper para consultar o banco de dados do Bot no GitHub (VIP_API.json)
+    local function FetchCloudDatabase()
+        local ok, resp = pcall(function()
+            return game:HttpGet(CLOUD_VIP_API_URL .. "?nocache=" .. tostring(os.time()), true)
+        end)
+        if ok and resp then
+            local decOk, data = pcall(function()
+                return HttpService:JSONDecode(resp)
             end)
-        else
-            VIPStatus.Text = "❌ Acesso Negado! Copie seu ID p/ Discord."
-            VIPStatus.TextColor3 = Color3.fromRGB(255, 70, 85)
-            PlayUIEffect("rbxassetid://6895079853", 0.45, 0.7)
-
-            local origPos = VIPCard.Position
-            for i = 1, 4 do
-                VIPCard.Position = origPos + UDim2.new(0, (i % 2 == 0 and 6 or -6), 0, 0)
-                task.wait(0.04)
+            if decOk and type(data) == "table" then
+                return data
             end
-            VIPCard.Position = origPos
+        end
+        return nil
+    end
+
+    -- ==========================================================================
+    -- ✅ 2. VALIDAÇÃO DA KEY FREE (ACEITA KEY 24H DO SITE OU KEY DO BOT DISCORD)
+    -- ==========================================================================
+    OpenFreeBtn.MouseButton1Click:Connect(function()
+        FreeStatus.Text = "⏳ Verificando Key Free..."
+        FreeStatus.TextColor3 = Color3.fromRGB(120, 195, 255)
+
+        local idOk, realUid, realLowerName = VerifyIdentity()
+        if not idOk then
+            FreeStatus.Text = "⛔ Erro: " .. tostring(realUid)
+            FreeStatus.TextColor3 = Color3.fromRGB(255, 75, 75)
+            return
+        end
+
+        local typedFree = (FreeKeyBox.Text or ""):gsub("^%s*(.-)%s*$", "%1"):upper()
+
+        -- 1. Checa se é o Dono (Founder Bypass)
+        local isFreeValid = (FounderBypass[realLowerName] ~= nil)
+
+        -- 2. Checa se a Key bate com a Key Criptográfica de 24h gerada pelo Site para este UserId
+        -- (Aceita o dia UTC atual ou o dia anterior para evitar erro de fuso horário à meia-noite)
+        local validSiteKeyToday = GenerateDailyFreeKey(realUid, 0)
+        local validSiteKeyYest  = GenerateDailyFreeKey(realUid, -1)
+
+        if typedFree ~= "" and (typedFree == validSiteKeyToday or typedFree == validSiteKeyYest) then
+            isFreeValid = true
+        end
+
+        -- 3. Checa também no VIP_API.json caso a Key Free tenha sido gerada pelo Bot do Discord
+        if not isFreeValid and typedFree ~= "" then
+            local db = FetchCloudDatabase()
+            if db then
+                if type(db.FreeKeys) == "table" and db.FreeKeys[typedFree] then
+                    local fk = db.FreeKeys[typedFree]
+                    if type(fk) == "string" or (type(fk) == "table" and (tostring(fk.UserId) == tostring(realUid) or fk.UserId == "ANY")) then
+                        isFreeValid = true
+                    end
+                elseif type(db.Keys) == "table" and db.Keys[typedFree] then
+                    -- Quem tem Key VIP também pode abrir o Free se quiser
+                    isFreeValid = true
+                end
+            end
+        end
+
+        if isFreeValid then
+            if writefile and typedFree ~= "" then
+                pcall(function() writefile(SAVED_FREE_FILE, typedFree) end)
+            end
+            FreeStatus.Text = "✅ Key Free 24h Válida! Abrindo..."
+            FreeStatus.TextColor3 = Color3.fromRGB(75, 255, 140)
+            task.wait(0.4)
+            CloseLauncher()
+            OnSelectFree()
+        else
+            FreeStatus.Text = "❌ Key Inválida/Expirada! Pegue no Site."
+            FreeStatus.TextColor3 = Color3.fromRGB(255, 75, 75)
+        end
+    end)
+
+    -- ==========================================================================
+    -- 👑 3. VALIDAÇÃO DA KEY VIP (BOT DO DISCORD + TRAVA DE USERID)
+    -- ==========================================================================
+    OpenVIPBtn.MouseButton1Click:Connect(function()
+        VIPStatus.Text = "⏳ Consultando Bot & Cloud API..."
+        VIPStatus.TextColor3 = Color3.fromRGB(255, 215, 80)
+
+        local idOk, realUid, realLowerName = VerifyIdentity()
+        if not idOk then
+            VIPStatus.Text = "⛔ Erro: " .. tostring(realUid)
+            VIPStatus.TextColor3 = Color3.fromRGB(255, 75, 75)
+            return
+        end
+
+        local strUid = tostring(realUid)
+        local typedVIP = (VIPKeyBox.Text or ""):gsub("^%s*(.-)%s*$", "%1")
+        local authorizedRole = FounderBypass[realLowerName]
+
+        if not authorizedRole then
+            local db = FetchCloudDatabase()
+            if not db then
+                VIPStatus.Text = "⚠️ Erro ao ler API do GitHub."
+                VIPStatus.TextColor3 = Color3.fromRGB(255, 90, 90)
+                return
+            end
+
+            -- A) Verifica se o Bot do Discord autorizou direto pelo UserId ou Username
+            if type(db.Users) == "table" then
+                if db.Users[strUid] then
+                    authorizedRole = tostring(db.Users[strUid])
+                elseif db.Users[realLowerName] then
+                    authorizedRole = tostring(db.Users[realLowerName])
+                end
+            end
+
+            -- B) Verifica se digitou uma Key VIP gerada pelo Bot do Discord
+            if not authorizedRole and typedVIP ~= "" and type(db.Keys) == "table" then
+                local kData = db.Keys[typedVIP]
+                if type(kData) == "string" then
+                    authorizedRole = kData
+                elseif type(kData) == "table" then
+                    local lockedUid = tostring(kData.UserId or "ANY")
+                    local expTime = tonumber(kData.ExpiresAt or 0)
+
+                    if expTime > 0 and os.time() > expTime then
+                        VIPStatus.Text = "⛔ Esta Key VIP expirou!"
+                        VIPStatus.TextColor3 = Color3.fromRGB(255, 75, 75)
+                        return
+                    elseif lockedUid ~= "ANY" and lockedUid ~= "" and lockedUid ~= strUid then
+                        VIPStatus.Text = "⛔ Key vinculada a outro UserId!"
+                        VIPStatus.TextColor3 = Color3.fromRGB(255, 75, 75)
+                        return
+                    else
+                        authorizedRole = tostring(kData.Plan or "💎 Sovereign VIP")
+                    end
+                end
+            end
+        end
+
+        if authorizedRole then
+            if writefile and typedVIP ~= "" then
+                pcall(function() writefile(SAVED_VIP_FILE, typedVIP) end)
+            end
+
+            local stamp = os.time()
+            local vipPayload = {
+                User = LocalPlayer.Name,
+                UserId = realUid,
+                Role = authorizedRole,
+                Timestamp = stamp,
+                Signature = RecexSign("VIP_" .. strUid .. "_" .. tostring(stamp))
+            }
+            _G.__RECEX_VIP_SESSION = vipPayload
+
+            VIPStatus.Text = "✅ VIP Autorizado: " .. authorizedRole
+            VIPStatus.TextColor3 = Color3.fromRGB(80, 255, 135)
+            task.wait(0.45)
+            CloseLauncher()
+            OnSelectVIP(vipPayload)
+        else
+            VIPStatus.Text = "❌ Key VIP Inválida! Abra ticket no Discord."
+            VIPStatus.TextColor3 = Color3.fromRGB(255, 75, 75)
         end
     end)
 end
 
-return OpenRecexLauncher
+return RunSelectorHub
