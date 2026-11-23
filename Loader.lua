@@ -72,6 +72,7 @@ if PlayIntro3D and CreateRecexUI then
             "Modules/Hubs.lua" ,
             "Modules/Spotify.lua" ,
             "Modules/Shaders.lua" ,
+            "Modules/Parkour.lua" ,
         }
 
         for _, modPath in ipairs(ModulesToLoad) do
