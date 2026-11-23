@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RECEX // SOVEREIGN AUTH & WEBGL PORTAL</title>
+    <!-- Fontes Técnicas: Space Grotesk & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+    <!-- Three.js (WebGL 3D Engine) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #050508;
+            --panel: rgba(9, 10, 15, 0.72);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-gold: rgba(245, 194, 66, 0.45);
+            --gold: #f5c242;
+            --cyan: #00f0ff;
+            --green: #00ff88;
+            --red: #ff3355;
+            --text: #f0f2f8;
+            --muted: #7a8299;
+            --discord: #5865F2;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Space Grotesk', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Canvas 3D Three.js no Fundo */
+        #webgl-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Malha Pontilhada / Vinheta Técnica */
+        .hud-overlay {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(circle at 50% 50%, transparent 30%, rgba(5, 5, 8, 0.88) 100%),
+                linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+            background-size: 100% 100%, 48px 48px, 48px 48px;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Layout Principal */
+        .wrapper {
+            position: relative;
+            z-index: 2;
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 28px 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Barra Superior (Topbar HUD) */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 18px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-logo {
+            width: 38px;
+            height: 38px;
+            border: 1px solid var(--gold);
+            display: grid;
+            place-items: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            color: var(--gold);
+            font-size: 18px;
+            background: rgba(245, 194, 66, 0.08);
+            box-shadow: 0 0 20px rgba(245, 194, 66, 0.2);
+        }
+
+        .brand-text h1 {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .brand-text span {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .telemetry {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--muted);
+            display: flex;
+            gap: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 8px 14px;
+            border: 1px solid var(--border);
+        }
+
+        .telemetry b {
+            color: var(--gold);
+        }
+
+        /* Grid Central Assimétrico */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 26px;
+            margin: 35px 0;
+            align-items: start;
+        }
+
+        @media (max-width: 860px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Painel Esquerdo: Card do Criador (Discord Recex) */
+        .panel {
+            background: var(--panel);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid var(--border);
+            position: relative;
+            padding: 26px;
+        }
+
+        /* Cantoneiras Técnicas (+) */
+        .panel::before, .panel::after {
+            content: "+";
+            position: absolute;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--gold);
+            line-height: 1;
+        }
+        .panel::before { top: 6px; left: 8px; }
+        .panel::after { bottom: 6px; right: 8px; }
+
+        .discord-banner {
+            height: 74px;
+            background: linear-gradient(135deg, rgba(245,194,66,0.28), rgba(88,101,242,0.35));
+            border: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: -38px;
+            position: relative;
+        }
+
+        .avatar-wrap {
+            position: relative;
+            width: 78px;
+            height: 78px;
+            margin-left: 16px;
+            margin-bottom: 14px;
+        }
+
+        .avatar-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border: 2px solid var(--gold);
+            background: #0b0c12;
+        }
+
+        .status-dot {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 16px;
+            height: 16px;
+            background: var(--green);
+            border: 3px solid #090a0f;
+            box-shadow: 0 0 10px var(--green);
+        }
+
+        .dev-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--gold);
+            border: 1px solid var(--border-gold);
+            background: rgba(245, 194, 66, 0.08);
+            padding: 3px 8px;
+            display: inline-block;
+            margin-bottom: 6px;
+            letter-spacing: 1px;
+        }
+
+        .dev-name {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dev-handle {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 16px;
+        }
+
+        .dev-bio {
+            font-size: 13px;
+            color: #b8c0d4;
+            line-height: 1.55;
+            border-top: 1px solid var(--border);
+            padding-top: 14px;
+            margin-bottom: 18px;
+        }
+
+        .discord-btn {
+            width: 100%;
+            background: var(--discord);
+            color: #fff;
+            border: none;
+            padding: 13px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .discord-btn:hover {
+            background: #4752c4;
+            box-shadow: 0 0 25px rgba(88, 101, 242, 0.45);
+        }
+
+        /* Painel Direito: Terminal de Autenticação */
+        .tabs-header {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            padding: 14px 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .tab-btn.active {
+            color: var(--gold);
+            border-bottom-color: var(--gold);
+            background: rgba(245, 194, 66, 0.05);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .section-sub {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 22px;
+            line-height: 1.5;
+        }
+
+        /* Inputs Técnicos */
+        .field-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .input-box {
+            width: 100%;
+            background: rgba(3, 4, 7, 0.85);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 14px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            outline: none;
+            margin-bottom: 18px;
+            transition: border-color 0.2s;
+            user-select: text;
+        }
+
+        .input-box:focus {
+            border-color: var(--gold);
+        }
+
+        /* Barra de Progresso do Checkpoint */
+        .progress-container {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            padding: 16px;
+            margin-bottom: 18px;
+        }
+
+        .progress-top {
+            display: flex;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--gold);
+            box-shadow: 0 0 12px var(--gold);
+            transition: width 0.4s ease;
+        }
+
+        /* Display da Key Gerada */
+        .key-terminal {
+            background: #030406;
+            border: 1px solid var(--gold);
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--gold);
+            text-align: center;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+            display: none;
+            user-select: all;
+        }
+
+        /* Botões Principais */
+        .action-btn {
+            width: 100%;
+            background: var(--gold);
+            color: #060609;
+            border: none;
+            padding: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            filter: brightness(1.1);
+            box-shadow: 0 0 25px rgba(245, 194, 66, 0.35);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .secondary-btn {
+            width: 100%;
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 13px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: border-color 0.2s;
+        }
+
+        .secondary-btn:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .terminal-log {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            margin-top: 14px;
+            min-height: 18px;
+            color: var(--muted);
+        }
+
+        .code-block {
+            background: #040508;
+            border: 1px solid var(--border);
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #a6b2ec;
+            overflow-x: auto;
+            margin-bottom: 16px;
+            line-height: 1.6;
+            user-select: all;
+        }
+
+        /* Rodapé HUD */
+        .footer {
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+            display: flex;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--muted);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- FUNDO 3D INTERATIVO (THREE.JS) -->
+    <canvas id="webgl-canvas"></canvas>
+    <div class="hud-overlay"></div>
+
+    <div class="wrapper">
+        <!-- TOPBAR -->
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-logo">R</div>
+                <div class="brand-text">
+                    <h1>RECEX SOVEREIGN</h1>
+                    <span>CRYPTOGRAPHIC AUTH & WEBGL CORE V2.5</span>
+                </div>
+            </div>
+            <div class="telemetry">
+                <span>ENGINE: <b>THREE.JS R128</b></span>
+                <span>FPS: <b id="fps-counter">60</b></span>
+                <span>API: <b>ONLINE</b></span>
+            </div>
+        </header>
+
+        <!-- GRID PRINCIPAL -->
+        <main class="main-grid">
+            <!-- COLUNA ESQUERDA: SEU PERFIL E DISCORD OFICIAL -->
+            <aside class="panel">
+                <div class="discord-banner"></div>
+                <div class="avatar-wrap">
+                    <!-- Carrega sua foto real do perfil recex (ou troque na config do script abaixo) -->
+                    <img id="dev-avatar" src="https://github.com/recex.png" alt="Recex Avatar" />
+                    <div class="status-dot" title="Online no Discord"></div>
+                </div>
+
+                <div class="dev-tag">FOUNDER & LEAD DEV</div>
+                <div class="dev-name" id="dev-display">recex</div>
+                <div class="dev-handle" id="dev-discord-tag">Discord: @recex</div>
+
+                <p class="dev-bio">
+                    Criador do <b>Recex Hub</b> & <b>Sovereign YARHM Edition</b>. 
+                    Entre no servidor oficial do Discord para adquirir sua licença VIP, usar o Bot de ativação automática ou pegar atualizações.
+                </p>
+
+                <a id="discord-link" href="https://discord.gg/recexhub" target="_blank" class="discord-btn">
+                    <svg width="18" height="14" viewBox="0 0 71 55" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M60.1045 4.8978C55.5792 2.8214 50.7265 1.2916 45.6527 0.41542C45.5603 0.39851 45.468 0.440769 45.4204 0.525289C44.7963 1.6353 44.105 3.0834 43.6209 4.2216C38.1637 3.4046 32.7345 3.4046 27.3892 4.2216C26.905 3.0581 26.1886 1.6353 25.5617 0.525289C25.5141 0.443589 25.4218 0.40133 25.3294 0.41542C20.2584 1.2888 15.4057 2.8186 10.8776 4.8978C10.8384 4.9147 10.8048 4.9429 10.7825 4.9795C1.57795 18.7309 -0.943561 32.1443 0.293408 45.3914C0.299005 45.4562 0.335386 45.5182 0.385761 45.5576C6.45866 50.0174 12.3413 52.7249 18.1147 54.5195C18.2071 54.5477 18.305 54.5139 18.3638 54.4378C19.7295 52.5728 20.9469 50.6063 21.9907 48.5383C22.0523 48.4172 21.9935 48.2735 21.8676 48.2256C19.9366 47.4931 18.0979 46.6 16.3292 45.5858C16.1893 45.5041 16.1781 45.304 16.3068 45.2082C16.679 44.9293 17.0513 44.6391 17.4067 44.3461C17.471 44.2926 17.5606 44.2813 17.6362 44.3151C29.2558 49.6202 41.8354 49.6202 53.3179 44.3151C53.3935 44.2785 53.4831 44.2898 53.5502 44.3433C53.9057 44.6363 54.2779 44.9293 54.6529 45.2082C54.7816 45.304 54.7732 45.5041 54.6333 45.5858C52.8646 46.6197 51.0259 47.4931 49.0921 48.2228C48.9662 48.2707 48.9102 48.4172 48.9718 48.5383C50.038 50.6034 51.2554 52.5699 52.5959 54.435C52.6519 54.5139 52.7526 54.5477 52.845 54.5195C58.6464 52.7249 64.529 50.0174 70.6019 45.5576C70.6551 45.5182 70.6887 45.459 70.6943 45.3942C72.1747 30.0791 68.2147 16.7757 60.1968 4.9823C60.1772 4.9429 60.1437 4.9147 60.1045 4.8978Z" fill="currentColor"/>
+                    </svg>
+                    Entrar no Discord Oficial
+                </a>
+            </aside>
+
+            <!-- COLUNA DIREITA: GERADOR DE KEY & VERIFICADOR VIP -->
+            <section class="panel">
+                <div class="tabs-header">
+                    <button class="tab-btn active" onclick="switchTab('free', this)">[01] FREE KEY (24H)</button>
+                    <button class="tab-btn" onclick="switchTab('vip', this)">[02] SOVEREIGN VIP</button>
+                    <button class="tab-btn" onclick="switchTab('script', this)">[03] LOADSTRING</button>
+                </div>
+
+                <!-- ABA 1: KEY FREE 24H -->
+                <div id="tab-free" class="tab-content active">
+                    <div class="section-title">GERADOR DE LICENÇA FREE (24H)</div>
+                    <p class="section-sub">
+                        Sincronizado com o <code>Core/SelectorHub.lua</code>. Digite seu <b>Roblox UserId</b> para assinar uma chave temporária de 24 horas exclusiva para sua conta.
+                    </p>
+
+                    <div class="field-label">
+                        <span>ROBLOX USER ID</span>
+                        <span id="uid-indicator" style="color: var(--gold);">AGUARDANDO INPUT</span>
+                    </div>
+                    <input type="number" id="freeUid" class="input-box" placeholder="Ex: 123456789 (Copie no botão do Hub)" />
+
+                    <div class="progress-container">
+                        <div class="progress-top">
+                            <span id="cp-label">STATUS: CHECKPOINT 0 / 2</span>
+                            <span id="cp-percent">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="cp-bar"></div>
+                        </div>
+                    </div>
+
+                    <div class="key-terminal" id="generatedKeyBox">RXFREE-000000-000000</div>
+
+                    <button class="action-btn" id="actionFreeBtn" onclick="handleFreeStep()">
+                        INICIAR VERIFICAÇÃO (PASSO 1/2)
+                    </button>
+                    <button class="secondary-btn" id="copyFreeBtn" style="display:none;" onclick="copyFreeKey()">
+                        COPIAR CHAVE ASSINADA PARA O ROBLOX
+                    </button>
+
+                    <div class="terminal-log" id="freeStatus">> Pronto para iniciar autenticação.</div>
+                </div>
+
+                <!-- ABA 2: CONSULTA SOVEREIGN VIP -->
+                <div id="tab-vip" class="tab-content">
+                    <div class="section-title">VALIDADOR CLOUD // SOVEREIGN VIP</div>
+                    <p class="section-sub">
+                        Consulte em tempo real no banco de dados <code>VIP_API.json</code> se o seu <b>UserId</b> ou <b>Key VIP</b> já foi autorizado pelo nosso Bot do Discord.
+                    </p>
+
+                    <div class="field-label">
+                        <span>CHAVE VIP OU ROBLOX USER ID</span>
+                        <span>CLOUD DATABASE</span>
+                    </div>
+                    <input type="text" id="vipQuery" class="input-box" placeholder="Ex: RXVIP-... ou seu UserId" />
+
+                    <button class="action-btn" onclick="checkVIPStatus()">
+                        CONSULTAR LICENÇA NA CLOUD API
+                    </button>
+
+                    <div class="terminal-log" id="vipStatus">> Aguardando consulta...</div>
+                </div>
+
+                <!-- ABA 3: LOADSTRING OFICIAL -->
+                <div id="tab-script" class="tab-content">
+                    <div class="section-title">EXECUÇÃO DIRETA // LOADSTRING</div>
+                    <p class="section-sub">
+                        Execute o script abaixo no seu executor. Ele abrirá automaticamente o <b>SelectorHub</b> (Free + Sovereign YARHM VIP).
+                    </p>
+
+                    <div class="code-block" id="loadstringCode">loadstring(game:HttpGet("https://raw.githubusercontent.com/recex/Universal-script-Lua-by-recex/main/Loader.lua?t=" .. tostring(os.time()), true))()</div>
+
+                    <button class="action-btn" onclick="copyLoadstring()">
+                        COPIAR LOADSTRING OFICIAL
+                    </button>
+                    <div class="terminal-log" id="scriptStatus">> Anti-Cache ativo no Loader.</div>
+                </div>
+            </section>
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="footer">
+            <span>RECEX HUB © 2025 // ALL RIGHTS RESERVED</span>
+            <span>CORE: YARHM 1.20 + SHIELD V2</span>
+        </footer>
+    </div>
+
+    <!-- =========================================================================
+         ⚙️ CONFIGURAÇÃO DO SEU PERFIL + MOTOR THREE.JS + CRIPTOGRAFIA DE KEYS
+         ========================================================================= -->
+    <script>
+        // 🔧 CONFIGURE SEU DISCORD E SUA FOTO AQUI:
+        const RECEX_CONFIG = {
+            DISCORD_NAME: "recex",
+            DISCORD_TAG: "Discord: @recex",
+            // Por padrão puxa sua foto oficial do GitHub (https://github.com/recex.png).
+            // Se quiser usar outro link de imagem do Discord, basta colar abaixo:
+            AVATAR_URL: "https://github.com/recex.png",
+            DISCORD_INVITE_URL: "https://discord.gg/recexhub"
+        };
+
+        document.getElementById("dev-display").innerText = RECEX_CONFIG.DISCORD_NAME;
+        document.getElementById("dev-discord-tag").innerText = RECEX_CONFIG.DISCORD_TAG;
+        document.getElementById("dev-avatar").src = RECEX_CONFIG.AVATAR_URL;
+        document.getElementById("discord-link").href = RECEX_CONFIG.DISCORD_INVITE_URL;
+
+        // =========================================================================
+        // 🌌 1. MOTOR 3D THREE.JS (ASTROLÁBIO SINGULARIDADE + PARTÍCULAS INTERATIVAS)
+        // =========================================================================
+        const canvas = document.getElementById("webgl-canvas");
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 26;
+
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        const coreGroup = new THREE.Group();
+        scene.add(coreGroup);
+
+        // Esfera Central (Horizonte de Eventos Wireframe)
+        const sphereGeo = new THREE.IcosahedronGeometry(4.2, 2);
+        const sphereMat = new THREE.MeshBasicMaterial({
+            color: 0xf5c242,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.22
+        });
+        const coreSphere = new THREE.Mesh(sphereGeo, sphereMat);
+        coreGroup.add(coreSphere);
+
+        // Anel Giroscópico 1 (Dourado)
+        const ring1Geo = new THREE.TorusGeometry(7.5, 0.06, 16, 120);
+        const ring1Mat = new THREE.MeshBasicMaterial({ color: 0xf5c242, transparent: true, opacity: 0.55 });
+        const ring1 = new THREE.Mesh(ring1Geo, ring1Mat);
+        ring1.rotation.x = Math.PI / 2.3;
+        coreGroup.add(ring1);
+
+        // Anel Giroscópico 2 (Ciano Técnico)
+        const ring2Geo = new THREE.TorusGeometry(10.2, 0.04, 16, 120);
+        const ring2Mat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.3 });
+        const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
+        ring2.rotation.y = Math.PI / 3;
+        coreGroup.add(ring2);
+
+        // Anel Giroscópico 3 (Externo)
+        const ring3Geo = new THREE.TorusGeometry(13.5, 0.05, 16, 140);
+        const ring3Mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
+        const ring3 = new THREE.Mesh(ring3Geo, ring3Mat);
+        ring3.rotation.x = -Math.PI / 4;
+        coreGroup.add(ring3);
+
+        // Campo de 2.500 Partículas Orbitais
+        const partCount = 2500;
+        const posArray = new Float32Array(partCount * 3);
+        for (let i = 0; i < partCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 75;
+        }
+        const partGeo = new THREE.BufferGeometry();
+        partGeo.setAttribute("position", new THREE.BufferAttribute(posArray, 3));
+        const partMat = new THREE.PointsMaterial({
+            size: 0.09,
+            color: 0xf5c242,
+            transparent: true,
+            opacity: 0.55
+        });
+        const particleMesh = new THREE.Points(partGeo, partMat);
+        scene.add(particleMesh);
+
+        // Interação com o Mouse + Aceleração Warp quando gera Key
+        let mouseX = 0, mouseY = 0;
+        let warpSpeed = 1;
+
+        window.addEventListener("mousemove", (e) => {
+            mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+            mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+        });
+
+        window.addEventListener("resize", () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Contador de FPS Real
+        let lastTime = performance.now();
+        let frames = 0;
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+
+            frames++;
+            const now = performance.now();
+            if (now - lastTime >= 1000) {
+                document.getElementById("fps-counter").innerText = frames;
+                frames = 0;
+                lastTime = now;
+            }
+
+            // Desacelera suavemente o Warp Speed de volta ao normal
+            warpSpeed += (1 - warpSpeed) * 0.04;
+
+            coreSphere.rotation.y += 0.004 * warpSpeed;
+            coreSphere.rotation.x += 0.002 * warpSpeed;
+
+            ring1.rotation.z += 0.008 * warpSpeed;
+            ring2.rotation.x += 0.006 * warpSpeed;
+            ring2.rotation.y += 0.004 * warpSpeed;
+            ring3.rotation.z -= 0.005 * warpSpeed;
+
+            particleMesh.rotation.y += 0.0008 * warpSpeed;
+
+            // Parallax suave com o mouse
+            coreGroup.rotation.y += (mouseX * 0.45 - coreGroup.rotation.y) * 0.05;
+            coreGroup.rotation.x += (mouseY * 0.45 - coreGroup.rotation.x) * 0.05;
+
+            renderer.render(scene, camera);
+        }
+        animate3D();
+
+        // =========================================================================
+        // 🔐 2. LÓGICA DE NAVEGAÇÃO & CRIPTOGRAFIA (SINCRONIZADA COM O HUB)
+        // =========================================================================
+        function switchTab(tabId, btnElem) {
+            document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+            document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
+            document.getElementById("tab-" + tabId).classList.add("active");
+            btnElem.classList.add("active");
+            warpSpeed = 4.5; // Pulso no motor 3D ao trocar de aba
+        }
+
+        // Algoritmo Idêntico ao Core/SelectorHub.lua
+        function generateDailyFreeKey(userId) {
+            const utcDay = Math.floor(Date.now() / 1000 / 86400);
+            const seedStr = "RECEX_FREE_SECRET_2025_" + String(userId).trim() + "_" + String(utcDay);
+
+            let h1 = 5381;
+            let h2 = 52711;
+            for (let i = 0; i < seedStr.length; i++) {
+                const b = seedStr.charCodeAt(i);
+                h1 = ((h1 * 33) + b) % 99999999;
+                h2 = ((h2 * 131) + b) % 99999999;
+            }
+
+            const hex1 = h1.toString(16).toUpperCase().padStart(6, '0');
+            const hex2 = h2.toString(16).toUpperCase().padStart(6, '0');
+            return `RXFREE-${hex1}-${hex2}`;
+        }
+
+        // Auto-preenche UserId vindo do Roblox (?uid=...)
+        window.addEventListener("DOMContentLoaded", () => {
+            const params = new URLSearchParams(window.location.search);
+            const uid = params.get("uid");
+            if (uid) {
+                document.getElementById("freeUid").value = uid;
+                document.getElementById("vipQuery").value = uid;
+                document.getElementById("uid-indicator").innerText = "ID SINCRONIZADO: " + uid;
+            }
+        });
+
+        let step = 0;
+        let busy = false;
+
+        function handleFreeStep() {
+            const uid = document.getElementById("freeUid").value.trim();
+            const log = document.getElementById("freeStatus");
+            const btn = document.getElementById("actionFreeBtn");
+            const bar = document.getElementById("cp-bar");
+            const lbl = document.getElementById("cp-label");
+            const pct = document.getElementById("cp-percent");
+
+            if (!uid || isNaN(uid) || Number(uid) <= 0) {
+                log.style.color = "var(--red)";
+                log.innerText = "> ERRO: Insira um Roblox UserId numérico válido.";
+                return;
+            }
+
+            if (busy) return;
+            busy = true;
+            btn.disabled = true;
+            warpSpeed = 12; // Acelera o Buraco Negro 3D!
+
+            if (step === 0) {
+                log.style.color = "var(--cyan)";
+                log.innerText = "> Validando Checkpoint 1/2 no nó criptográfico...";
+                bar.style.width = "50%";
+                pct.innerText = "50%";
+
+                let s = 3;
+                const t = setInterval(() => {
+                    btn.innerText = `PROCESSANDO NÓ 1 (${s}s)...`;
+                    s--;
+                    if (s < 0) {
+                        clearInterval(t);
+                        step = 1;
+                        busy = false;
+                        btn.disabled = false;
+                        lbl.innerText = "STATUS: CHECKPOINT 1 / 2 CONCLUÍDO";
+                        btn.innerText = "EXECUTAR CHECKPOINT FINAL (2/2)";
+                        log.style.color = "var(--green)";
+                        log.innerText = "> Checkpoint 1 concluído. Clique para gerar sua assinatura.";
+                    }
+                }, 1000);
+            } else if (step === 1) {
+                log.style.color = "var(--gold)";
+                log.innerText = "> Assinando Hash 24h para o UserId " + uid + "...";
+                bar.style.width = "100%";
+                pct.innerText = "100%";
+
+                let s = 3;
+                const t = setInterval(() => {
+                    btn.innerText = `ASSINANDO KEY (${s}s)...`;
+                    s--;
+                    if (s < 0) {
+                        clearInterval(t);
+                        step = 2;
+                        busy = false;
+                        warpSpeed = 18;
+
+                        const key = generateDailyFreeKey(uid);
+                        lbl.innerText = "STATUS: LICENÇA 24H GERADA COM SUCESSO";
+
+                        const kBox = document.getElementById("generatedKeyBox");
+                        kBox.style.display = "block";
+                        kBox.innerText = key;
+
+                        btn.style.display = "none";
+                        document.getElementById("copyFreeBtn").style.display = "block";
+
+                        log.style.color = "var(--green)";
+                        log.innerText = "> Sucesso! Copie a Key acima e cole no SelectorHub.";
+                    }
+                }, 1000);
+            }
+        }
+
+        function copyFreeKey() {
+            const k = document.getElementById("generatedKeyBox").innerText;
+            navigator.clipboard.writeText(k);
+            const log = document.getElementById("freeStatus");
+            log.style.color = "var(--gold)";
+            log.innerText = "> Key copiada para a área de transferência!";
+        }
+
+        function copyLoadstring() {
+            const code = document.getElementById("loadstringCode").innerText;
+            navigator.clipboard.writeText(code);
+            const log = document.getElementById("scriptStatus");
+            log.style.color = "var(--green)";
+            log.innerText = "> Loadstring copiado com sucesso!";
+        }
+
+        async function checkVIPStatus() {
+            const q = document.getElementById("vipQuery").value.trim();
+            const log = document.getElementById("vipStatus");
+            if (!q) {
+                log.style.color = "var(--red)";
+                log.innerText = "> ERRO: Digite sua Key VIP ou UserId.";
+                return;
+            }
+
+            warpSpeed = 10;
+            log.style.color = "var(--gold)";
+            log.innerText = "> Consultando VIP_API.json na nuvem...";
+
+            try {
+                const res = await fetch("https://raw.githubusercontent.com/recex/Universal-script-Lua-by-recex/main/VIP_API.json?t=" + Date.now());
+                const data = await res.json();
+                let role = null;
+
+                if (data.Users && (data.Users[q] || data.Users[q.toLowerCase()])) {
+                    role = data.Users[q] || data.Users[q.toLowerCase()];
+                } else if (data.Keys && data.Keys[q]) {
+                    const k = data.Keys[q];
+                    role = typeof k === "string" ? k : (k.Plan || "Sovereign VIP");
+                }
+
+                if (role) {
+                    log.style.color = "var(--green)";
+                    log.innerText = "> LICENÇA ATIVA: " + role;
+                } else {
+                    log.style.color = "var(--red)";
+                    log.innerText = "> NÃO ENCONTRADO: Adquira ou ative no nosso Bot do Discord.";
+                }
+            } catch (e) {
+                log.style.color = "var(--red)";
+                log.innerText = "> Falha ao ler VIP_API.json.";
+            }
+        }
+    </script>
+</body>
+</html>
