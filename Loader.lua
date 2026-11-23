@@ -1,7 +1,6 @@
 -- [[ RECEX HUB — GITHUB MODULAR LOADER ]] --
 -- [[ Made by recex ]] --
 
--- ⚠️ TROQUE PELO SEU USUÁRIO E NOME DO REPOSITÓRIO DO GITHUB:
 local GITHUB_USER = "recex"
 local GITHUB_REPO = "Universal-script-Lua-by-recex"
 local BRANCH      = "main"
@@ -49,7 +48,7 @@ if PlayIntro3D and CreateRecexUI then
             Hub.Notify("GitHub Sync", "Todos os módulos do Recex Hub estão atualizados!", 4)
         end)
 
-        -- 2. Carrega os nossos Scripts da pasta Modules/ (Um por um!)
+        -- 2. Carrega os nossos Scripts da pasta Modules/
         local ModulesToLoad = {
             "Modules/Universal.lua",
             "Modules/Visuals.lua",
@@ -60,7 +59,7 @@ if PlayIntro3D and CreateRecexUI then
             task.spawn(function()
                 local initModule = Import(modPath)
                 if type(initModule) == "function" then
-                    initModule(Hub, Tabs) -- Passa o Hub e as Abas para o módulo adicionar seus botões!
+                    initModule(Hub, Tabs)
                 end
             end)
         end
