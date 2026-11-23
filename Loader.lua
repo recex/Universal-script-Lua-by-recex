@@ -70,6 +70,7 @@ if PlayIntro3D and CreateRecexUI then
             "Modules/Visuals.lua",
             "Modules/RecexScripts.lua",
             "Modules/Hubs.lua"
+            "Modules/Spotify.lua"
         }
 
         for _, modPath in ipairs(ModulesToLoad) do
