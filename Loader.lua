@@ -69,7 +69,7 @@ if PlayIntro3D and CreateRecexUI then
             "Modules/Universal.lua",
             "Modules/Visuals.lua",
             "Modules/RecexScripts.lua",
-            "Modules/Hubs.lua"
+            "Modules/Hubs.lua" ,
             "Modules/Spotify.lua"
         }
 
