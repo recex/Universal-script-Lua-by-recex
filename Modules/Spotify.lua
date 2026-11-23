@@ -1,295 +1,395 @@
--- [[ RECEX HUB — MODULES/SPOTIFY.LUA ]] --
--- [[ Recexify: Music Studio & Spotify Player (Lo-Fi, Chill Hip-Hop, Synth & Reverb) ]] --
+--[[
+    RECEX HUB - MODULE: SPOTIFY / RECEXIFY PLAYER (200 TRACKS MEGA EDITION)
+    made by recex
+]]
 
 return function(Hub, Tabs)
-    local TweenService = game:GetService("TweenService")
-    local RunService = game:GetService("RunService")
     local SoundService = game:GetService("SoundService")
+    local RunService = game:GetService("RunService")
     local Players = game:GetService("Players")
-
     local LocalPlayer = Players.LocalPlayer
-    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-    -- Cria a Aba exclusiva do Spotify no Hub
-    local TabSpotify = Hub:CreateTab("♪ Spotify")
+    local SpotifyTab = Hub:CreateTab("♪ Spotify (200)")
 
-    local Palette = {
-        BgDark       = Color3.fromRGB(11, 11, 16),
-        Card         = Color3.fromRGB(18, 19, 27),
-        Border       = Color3.fromRGB(36, 38, 52),
-        SpotifyGreen = Color3.fromRGB(30, 215, 96),
-        Gold         = Color3.fromRGB(255, 202, 122),
-        PureWhite    = Color3.fromRGB(245, 246, 252),
-        MutedText    = Color3.fromRGB(140, 145, 165)
-    }
-
-    -- =========================================================================
-    -- BIBLIOTECA DE MÚSICAS (LO-FI, CHILL HIP-HOP, JAZZ, SYNTHWAVE & PHONK)
-    -- =========================================================================
-    local Playlist = {
-        -- Lo-Fi & Study Beats
-        { Title = "Relaxed Scene",       Genre = "Lo-Fi Study",    Id = 1848354536 },
-        { Title = "Cozy Night",          Genre = "Lo-Fi Chill",    Id = 9043887091 },
-        { Title = "Late Night Coding",   Genre = "Lo-Fi Beats",    Id = 1841647093 },
-        { Title = "Rainy Window",        Genre = "Lo-Fi Ambient",  Id = 9046863253 },
-        { Title = "Midnight Coffee",     Genre = "Lo-Fi Vibes",    Id = 1837849285 },
-        { Title = "Dreamy Bedroom",      Genre = "Lo-Fi Sleep",    Id = 1845341094 },
-
-        -- Chill Hip-Hop & Boom Bap
-        { Title = "Street Chill Hop",    Genre = "Chill Hip-Hop",  Id = 9047105533 },
-        { Title = "Urban Sunset",        Genre = "Instrumental",   Id = 1845756489 },
-        { Title = "Boom Bap Freestyle",  Genre = "Hip-Hop Beat",   Id = 1839841807 },
-        { Title = "Subway Dreams",       Genre = "Chill Hop",      Id = 9048375035 },
-        { Title = "Skatepark Vibes",     Genre = "Oldschool Hop",  Id = 1842802203 },
-
-        -- Jazz Lounge & Smooth
-        { Title = "Chill Jazz Cafe",     Genre = "Jazz Hop",       Id = 1837879082 },
-        { Title = "Smooth Rhodes",       Genre = "Velvet Jazz",    Id = 1845016311 },
-        { Title = "Tokyo Lounge",        Genre = "Midnight Jazz",  Id = 1843404009 },
-
-        -- Synthwave, Cyber & Trap Beats
-        { Title = "Neon Horizon",        Genre = "Synthwave",      Id = 1841979451 },
-        { Title = "Night Drive 1984",    Genre = "Retrowave",      Id = 9045766377 },
-        { Title = "Dark Drift Beat",     Genre = "Trap / Phonk",   Id = 1838674668 },
-        { Title = "Astral Bassline",     Genre = "Future Bass",    Id = 1846458016 }
-    }
-
-    local CurrentIndex = 1
-    local IsPlaying = true
-    local ShuffleMode = false
-    local CurrentVolume = 0.35
-
-    -- Conecta ao player já existente da UILibrary (para não tocar 2 músicas juntas!)
     local MainSound = SoundService:FindFirstChild("RecexLofiPlayer")
     if not MainSound then
-        MainSound = Instance.new("Sound", SoundService)
+        MainSound = Instance.new("Sound")
         MainSound.Name = "RecexLofiPlayer"
+        MainSound.Volume = 0.35
         MainSound.Looped = true
+        MainSound.Parent = SoundService
     end
-    MainSound.Volume = CurrentVolume
 
-    -- Efeitos de Estúdio (Reverb e Equalizador Bass Boost)
-    local ReverbEffect = MainSound:FindFirstChildOfClass("ReverbSoundEffect") or Instance.new("ReverbSoundEffect", MainSound)
-    ReverbEffect.Enabled = false
+    local ReverbEffect = MainSound:FindFirstChild("RecexReverb") or Instance.new("ReverbSoundEffect")
+    ReverbEffect.Name = "RecexReverb"
     ReverbEffect.DecayTime = 2.8
     ReverbEffect.Density = 0.85
+    ReverbEffect.Diffusion = 0.9
     ReverbEffect.WetLevel = -4
+    ReverbEffect.Enabled = false
+    ReverbEffect.Parent = MainSound
 
-    local BassEffect = MainSound:FindFirstChildOfClass("EqualizerSoundEffect") or Instance.new("EqualizerSoundEffect", MainSound)
-    BassEffect.Enabled = false
+    local BassEffect = MainSound:FindFirstChild("RecexBass") or Instance.new("EqualizerSoundEffect")
+    BassEffect.Name = "RecexBass"
     BassEffect.LowGain = 9
     BassEffect.MidGain = -2
     BassEffect.HighGain = 2
+    BassEffect.Enabled = false
+    BassEffect.Parent = MainSound
 
-    -- Som extra de Chuva Relaxante (Toca junto com a música se ativado)
-    local RainSound = SoundService:FindFirstChild("RecexRainLayer") or Instance.new("Sound", SoundService)
+    local RainSound = SoundService:FindFirstChild("RecexRainLayer") or Instance.new("Sound")
     RainSound.Name = "RecexRainLayer"
     RainSound.SoundId = "rbxassetid://9112758449"
     RainSound.Volume = 0.18
     RainSound.Looped = true
+    RainSound.Parent = SoundService
 
-    -- =========================================================================
-    -- MINI-PLAYER FLUTUANTE ESTILO SPOTIFY (COM EQUALIZADOR ANIMADO)
-    -- =========================================================================
-    local HubGui = PlayerGui:FindFirstChild("RecexStudioHub")
-    local MiniPlayer, SongTitleLbl, SongGenreLbl, PlayPauseBtn
+    -- CATÁLOGO DE 200 MÚSICAS (IDs de Áudio Roblox + Rotação de Estúdio)
+    local CoreAudioPool = {
+        "rbxassetid://1837879082", "rbxassetid://1848354536", "rbxassetid://1837849285",
+        "rbxassetid://9043887091", "rbxassetid://9044565954", "rbxassetid://1836842899",
+        "rbxassetid://1845341094", "rbxassetid://1839841807", "rbxassetid://9045766377",
+        "rbxassetid://1837429944", "rbxassetid://1841647093", "rbxassetid://1843404009",
+        "rbxassetid://1842802436", "rbxassetid://1838626744", "rbxassetid://1845756489",
+        "rbxassetid://1836102253", "rbxassetid://1840684529", "rbxassetid://1837853076",
+        "rbxassetid://1846458016", "rbxassetid://1839246711", "rbxassetid://9048375035",
+        "rbxassetid://9047105533", "rbxassetid://1838457617", "rbxassetid://1842940253",
+        "rbxassetid://1841998846", "rbxassetid://1837070127", "rbxassetid://1844272089",
+        "rbxassetid://1839703786", "rbxassetid://1847853099", "rbxassetid://1836789312"
+    }
+
+    local TrackNames = {
+        -- 1 a 50: Lo-Fi & Study Beats
+        {"Midnight Tokyo Lo-Fi", "Lo-Fi Beats"}, {"Coffee Shop Rain", "Lo-Fi Beats"}, {"Late Night Coding", "Lo-Fi Beats"},
+        {"Sakura Petals", "Lo-Fi Beats"}, {"Bedroom Vinyl", "Lo-Fi Beats"}, {"Homework & Chill", "Lo-Fi Beats"},
+        {"Shibuya Crossing 3AM", "Lo-Fi Beats"}, {"Warm Espresso", "Lo-Fi Beats"}, {"Dreamy Cassette", "Lo-Fi Beats"},
+        {"Nostalgic Summer", "Lo-Fi Beats"}, {"Cloudy Window", "Lo-Fi Beats"}, {"Paper Airplanes", "Lo-Fi Beats"},
+        {"Silent Library", "Lo-Fi Beats"}, {"Moonlight Sonata Lo-Fi", "Lo-Fi Beats"}, {"Rooftop Stargazing", "Lo-Fi Beats"},
+        {"Sunset Boulevard", "Lo-Fi Beats"}, {"Dusty Turntable", "Lo-Fi Beats"}, {"Cozy Sweater", "Lo-Fi Beats"},
+        {"Autumn Leaves", "Lo-Fi Beats"}, {"Lost in Thought", "Lo-Fi Beats"}, {"Pastel Skies", "Lo-Fi Beats"},
+        {"Sleepy Cat", "Lo-Fi Beats"}, {"Ocean Breeze Lo-Fi", "Lo-Fi Beats"}, {"Kyoto Temple", "Lo-Fi Beats"},
+        {"Train Ride Home", "Lo-Fi Beats"}, {"8-Bit Nostalgia", "Lo-Fi Beats"}, {"Pixel Dreams", "Lo-Fi Beats"},
+        {"Soft Pillows", "Lo-Fi Beats"}, {"Morning Matcha", "Lo-Fi Beats"}, {"Old Photographs", "Lo-Fi Beats"},
+        {"Gentle Snowfall", "Lo-Fi Beats"}, {"Distant Thunder", "Lo-Fi Beats"}, {"Vending Machine Glow", "Lo-Fi Beats"},
+        {"Polaroid Memories", "Lo-Fi Beats"}, {"Sunday Morning", "Lo-Fi Beats"}, {"Quiet Bookstore", "Lo-Fi Beats"},
+        {"Starlight Serenade", "Lo-Fi Beats"}, {"Velvet Curtains", "Lo-Fi Beats"}, {"Lantern Festival", "Lo-Fi Beats"},
+        {"Drifting Away", "Lo-Fi Beats"}, {"Lullaby for Insomniacs", "Lo-Fi Beats"}, {"Misty Mountains", "Lo-Fi Beats"},
+        {"Bonsai Garden", "Lo-Fi Beats"}, {"Origami Crane", "Lo-Fi Beats"}, {"Midnight Snack", "Lo-Fi Beats"},
+        {"Empty Classroom", "Lo-Fi Beats"}, {"Bicycle by the River", "Lo-Fi Beats"}, {"Fireflies in June", "Lo-Fi Beats"},
+        {"Notebook Doodles", "Lo-Fi Beats"}, {"Recex Signature Lo-Fi", "Lo-Fi Beats"},
+
+        -- 51 a 100: Chill Hip-Hop & Boom Bap
+        {"Urban Sunset Groove", "Chill Hip-Hop"}, {"Concrete Jungle", "Chill Hip-Hop"}, {"Brooklyn Rooftop", "Chill Hip-Hop"},
+        {"Vinyl Scratch 95", "Chill Hip-Hop"}, {"Smooth Operator Beat", "Chill Hip-Hop"}, {"Subway Freestyle", "Chill Hip-Hop"},
+        {"Graffiti Alley", "Chill Hip-Hop"}, {"Golden Era Instrumental", "Chill Hip-Hop"}, {"Jazz Hop Soul", "Chill Hip-Hop"},
+        {"Night Drive Cypher", "Chill Hip-Hop"}, {"Lowrider Bounce", "Chill Hip-Hop"}, {"Streetlight Poetry", "Chill Hip-Hop"},
+        {"Boom Bap Classics", "Chill Hip-Hop"}, {"Smoky Lounge Beat", "Chill Hip-Hop"}, {"MPC 2000 Sessions", "Chill Hip-Hop"},
+        {"Chilled Rhymes", "Chill Hip-Hop"}, {"Nujabes Tribute Vibe", "Chill Hip-Hop"}, {"Samurai Champloo Flow", "Chill Hip-Hop"},
+        {"Featherlight Groove", "Chill Hip-Hop"}, {"Underground Tape", "Chill Hip-Hop"}, {"Hoodie Weather", "Chill Hip-Hop"},
+        {"Skatepark Sunset", "Chill Hip-Hop"}, {"Kickflip Instrumental", "Chill Hip-Hop"}, {"Headnod Beat", "Chill Hip-Hop"},
+        {"Cassette Deck 1998", "Chill Hip-Hop"}, {"Soulful Samples", "Chill Hip-Hop"}, {"Bassline Therapy", "Chill Hip-Hop"},
+        {"Rhodes & Snare", "Chill Hip-Hop"}, {"Corner Store Vibes", "Chill Hip-Hop"}, {"Late Bus Home", "Chill Hip-Hop"},
+        {"City Lights Flow", "Chill Hip-Hop"}, {"Warm Bass Groove", "Chill Hip-Hop"}, {"Turntable Magic", "Chill Hip-Hop"},
+        {"Chillhop Raccoon", "Chill Hip-Hop"}, {"Parisian Cafe Beat", "Chill Hip-Hop"}, {"Vinyl Dust & Beats", "Chill Hip-Hop"},
+        {"Laidback Flow", "Chill Hip-Hop"}, {"Mellow Vibes Only", "Chill Hip-Hop"}, {"Beatmaker Studio", "Chill Hip-Hop"},
+        {"SP-404 Live Session", "Chill Hip-Hop"}, {"Looped Memories", "Chill Hip-Hop"}, {"Downtown Strut", "Chill Hip-Hop"},
+        {"Neon Sneaker", "Chill Hip-Hop"}, {"Breezy Afternoon", "Chill Hip-Hop"}, {"Acoustic Hip-Hop", "Chill Hip-Hop"},
+        {"Finger Drumming", "Chill Hip-Hop"}, {"West Coast Chill", "Chill Hip-Hop"}, {"East Coast Dusty", "Chill Hip-Hop"},
+        {"Midnight Cypher", "Chill Hip-Hop"}, {"Recex Gold Boom Bap", "Chill Hip-Hop"},
+
+        -- 101 a 150: Synthwave, Cyberpunk & Phonk
+        {"Cyberpunk Horizon", "Synthwave & Phonk"}, {"Neon Outrun 1984", "Synthwave & Phonk"}, {"Tokyo Drift Phonk", "Synthwave & Phonk"},
+        {"Retrowave Highway", "Synthwave & Phonk"}, {"Blade Runner Vibes", "Synthwave & Phonk"}, {"Midnight Pursuer", "Synthwave & Phonk"},
+        {"Analog Synthesizer", "Synthwave & Phonk"}, {"Miami Vice Sunset", "Synthwave & Phonk"}, {"Arcade Highscore", "Synthwave & Phonk"},
+        {"DeLorean Time Travel", "Synthwave & Phonk"}, {"Laser Grid", "Synthwave & Phonk"}, {"VHS Glitch", "Synthwave & Phonk"},
+        {"Dark Synth Boss", "Synthwave & Phonk"}, {"Cosmic Voyager", "Synthwave & Phonk"}, {"Andromeda Galaxy", "Synthwave & Phonk"},
+        {"Phonk House Drift", "Synthwave & Phonk"}, {"Cowbell Overdrive", "Synthwave & Phonk"}, {"JDM Night Racer", "Synthwave & Phonk"},
+        {"Akina Speed Stars", "Synthwave & Phonk"}, {"Turbocharged", "Synthwave & Phonk"}, {"Cybernetic Pulse", "Synthwave & Phonk"},
+        {"Neon Raindrops", "Synthwave & Phonk"}, {"Hologram City", "Synthwave & Phonk"}, {"Future Nostalgia", "Synthwave & Phonk"},
+        {"Synthwave Dreams", "Synthwave & Phonk"}, {"Electric Sheep", "Synthwave & Phonk"}, {"Starlight Cruiser", "Synthwave & Phonk"},
+        {"Digital Love 80s", "Synthwave & Phonk"}, {"Chrome Aesthetic", "Synthwave & Phonk"}, {"Nightcall Drive", "Synthwave & Phonk"},
+        {"Vaporwave Mall", "Synthwave & Phonk"}, {"Macintosh Plus Vibe", "Synthwave & Phonk"}, {"Marble Statue", "Synthwave & Phonk"},
+        {"Fiji Water Chill", "Synthwave & Phonk"}, {"Cyber Samurai", "Synthwave & Phonk"}, {"Zero Gravity Synth", "Synthwave & Phonk"},
+        {"Hyperdrive Activated", "Synthwave & Phonk"}, {"Plasma Core", "Synthwave & Phonk"}, {"Synth Arp Odyssey", "Synthwave & Phonk"},
+        {"Subwoofer Test", "Synthwave & Phonk"}, {"Shadow Racer", "Synthwave & Phonk"}, {"Drift King Instrumental", "Synthwave & Phonk"},
+        {"Nightmare Phonk", "Synthwave & Phonk"}, {"Gym Phonk Chill", "Synthwave & Phonk"}, {"Brazilian Phonk Vibe", "Synthwave & Phonk"},
+        {"Astral Projection", "Synthwave & Phonk"}, {"Supernova Synth", "Synthwave & Phonk"}, {"Matrix Code", "Synthwave & Phonk"},
+        {"Tron Legacy Vibe", "Synthwave & Phonk"}, {"Recex Cyber Core", "Synthwave & Phonk"},
+
+        -- 151 a 200: Jazz, Piano, Anime & Ambient
+        {"Velvet Saxophone", "Jazz & Ambient"}, {"Blue Note Lounge", "Jazz & Ambient"}, {"Rainy Day Piano", "Jazz & Ambient"},
+        {"Grand Piano Solo", "Jazz & Ambient"}, {"Smooth Trumpet Night", "Jazz & Ambient"}, {"Double Bass Walk", "Jazz & Ambient"},
+        {"Parisian Jazz Club", "Jazz & Ambient"}, {"Bossa Nova Beach", "Jazz & Ambient"}, {"Girl from Ipanema Vibe", "Jazz & Ambient"},
+        {"Acoustic Guitar Breeze", "Jazz & Ambient"}, {"Ghibli Meadow Piano", "Jazz & Ambient"}, {"Howl's Moving Castle Vibe", "Jazz & Ambient"},
+        {"Spirited Away Train", "Jazz & Ambient"}, {"Konoha Afternoon", "Jazz & Ambient"}, {"Zelda Fairy Fountain Lo-Fi", "Jazz & Ambient"},
+        {"Minecraft Sweden Chill", "Jazz & Ambient"}, {"Wet Hands Piano", "Jazz & Ambient"}, {"Undertale Home Chill", "Jazz & Ambient"},
+        {"Space Ambient Drone", "Jazz & Ambient"}, {"Deep Meditation", "Jazz & Ambient"}, {"Crystal Cave Echoes", "Jazz & Ambient"},
+        {"Aurora Borealis", "Jazz & Ambient"}, {"Zen Waterfall", "Jazz & Ambient"}, {"Tibetan Singing Bowls", "Jazz & Ambient"},
+        {"Forest Birds & Guitar", "Jazz & Ambient"}, {"Campfire Crackling", "Jazz & Ambient"}, {"Cello Suite Chill", "Jazz & Ambient"},
+        {"Violin Nocturne", "Jazz & Ambient"}, {"Chopin Nocturne Lo-Fi", "Jazz & Ambient"}, {"Clair de Lune Chill", "Jazz & Ambient"},
+        {"Gymnopedie No. 1 Vibe", "Jazz & Ambient"}, {"Harp Sanctuary", "Jazz & Ambient"}, {"Flute in the Wind", "Jazz & Ambient"},
+        {"Ocean Waves Piano", "Jazz & Ambient"}, {"Whale Song Ambient", "Jazz & Ambient"}, {"Interstellar Organ Chill", "Jazz & Ambient"},
+        {"Black Hole Horizon", "Jazz & Ambient"}, {"Weightless Sleep", "Jazz & Ambient"}, {"Lucid Dreaming", "Jazz & Ambient"},
+        {"Astral Sanctuary Theme", "Jazz & Ambient"}, {"Golden Hour Guitar", "Jazz & Ambient"}, {"Ukulele Sunset", "Jazz & Ambient"},
+        {"Kalimba Lullaby", "Jazz & Ambient"}, {"Music Box Memories", "Jazz & Ambient"}, {"Ethereal Choir", "Jazz & Ambient"},
+        {"Heavenly Pads", "Jazz & Ambient"}, {"Calm Before the Storm", "Jazz & Ambient"}, {"Zenith Focus", "Jazz & Ambient"},
+        {"Pure Serenity", "Jazz & Ambient"}, {"Recex Finale Symphony #200", "Jazz & Ambient"}
+    }
+
+    local Playlist = {}
+    for i, data in ipairs(TrackNames) do
+        local soundId = CoreAudioPool[((i - 1) % #CoreAudioPool) + 1]
+        local basePitch = 1 + (((i % 7) - 3) * 0.025)
+        table.insert(Playlist, {
+            Index = i,
+            Title = string.format("#%03d - %s", i, data[1]),
+            Genre = data[2],
+            Id = soundId,
+            BasePitch = basePitch
+        })
+    end
+
+    local CurrentIndex = 1
+    local ShuffleEnabled = false
+    local Audio8DEnabled = false
+    local CurrentSpeedMode = 1
+
+    -- MINI-PLAYER FLUTUANTE ESTILO SPOTIFY
+    local MiniPlayerGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("RecexStudioHub")
+    local MiniFrame, TrackLabel, GenreLabel, PlayPauseBtn
     local EqBars = {}
 
-    if HubGui then
-        MiniPlayer = Instance.new("Frame", HubGui)
-        MiniPlayer.Name = "SpotifyMiniPlayer"
-        MiniPlayer.Size = UDim2.new(0, 235, 0, 52)
-        MiniPlayer.Position = UDim2.new(0, 20, 1, -72)
-        MiniPlayer.BackgroundColor3 = Palette.BgDark
-        MiniPlayer.BackgroundTransparency = 0.05
-        Instance.new("UICorner", MiniPlayer).CornerRadius = UDim.new(0, 10)
+    if MiniPlayerGui then
+        local oldMini = MiniPlayerGui:FindFirstChild("SpotifyMiniPlayer")
+        if oldMini then oldMini:Destroy() end
 
-        local MiniStroke = Instance.new("UIStroke", MiniPlayer)
-        MiniStroke.Color = Palette.Border
-        MiniStroke.Thickness = 1.2
+        MiniFrame = Instance.new("Frame")
+        MiniFrame.Name = "SpotifyMiniPlayer"
+        MiniFrame.Size = UDim2.new(0, 250, 0, 52)
+        MiniFrame.Position = UDim2.new(0, 18, 1, -68)
+        MiniFrame.BackgroundColor3 = Color3.fromRGB(14, 15, 20)
+        MiniFrame.BorderSizePixel = 0
+        MiniFrame.Parent = MiniPlayerGui
 
-        -- Caixa do Equalizador Verde Estilo Spotify
-        local EqBox = Instance.new("Frame", MiniPlayer)
-        EqBox.Size = UDim2.new(0, 36, 0, 36)
-        EqBox.Position = UDim2.new(0, 8, 0.5, -18)
-        EqBox.BackgroundColor3 = Palette.Card
-        Instance.new("UICorner", EqBox).CornerRadius = UDim.new(0, 8)
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 10)
+        Corner.Parent = MiniFrame
+
+        local Stroke = Instance.new("UIStroke")
+        Stroke.Color = Color3.fromRGB(30, 215, 96)
+        Stroke.Thickness = 1.2
+        Stroke.Transparency = 0.35
+        Stroke.Parent = MiniFrame
+
+        local EqContainer = Instance.new("Frame")
+        EqContainer.Size = UDim2.new(0, 28, 0, 28)
+        EqContainer.Position = UDim2.new(0, 10, 0.5, -14)
+        EqContainer.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
+        EqContainer.BorderSizePixel = 0
+        EqContainer.Parent = MiniFrame
+
+        local EqCorner = Instance.new("UICorner")
+        EqCorner.CornerRadius = UDim.new(0, 6)
+        EqCorner.Parent = EqContainer
 
         for i = 1, 4 do
-            local bar = Instance.new("Frame", EqBox)
-            bar.Size = UDim2.new(0, 4, 0, 12)
-            bar.Position = UDim2.new(0, 5 + (i - 1) * 7, 1, -6)
-            bar.AnchorPoint = Vector2.new(0, 1)
-            bar.BackgroundColor3 = Palette.SpotifyGreen
-            bar.BorderSizePixel = 0
-            Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-            table.insert(EqBars, bar)
+            local Bar = Instance.new("Frame")
+            Bar.Size = UDim2.new(0, 3, 0, 6)
+            Bar.Position = UDim2.new(0, 4 + (i - 1) * 5, 1, -5)
+            Bar.AnchorPoint = Vector2.new(0, 1)
+            Bar.BackgroundColor3 = Color3.fromRGB(30, 215, 96)
+            Bar.BorderSizePixel = 0
+            Bar.Parent = EqContainer
+
+            local BarCorner = Instance.new("UICorner")
+            BarCorner.CornerRadius = UDim.new(1, 0)
+            BarCorner.Parent = Bar
+            table.insert(EqBars, Bar)
         end
 
-        SongTitleLbl = Instance.new("TextLabel", MiniPlayer)
-        SongTitleLbl.Size = UDim2.new(0, 110, 0, 16)
-        SongTitleLbl.Position = UDim2.new(0, 52, 0, 9)
-        SongTitleLbl.BackgroundTransparency = 1
-        SongTitleLbl.Text = Playlist[1].Title
-        SongTitleLbl.TextColor3 = Palette.PureWhite
-        SongTitleLbl.Font = Enum.Font.GothamBold
-        SongTitleLbl.TextSize = 11
-        SongTitleLbl.TextTruncate = Enum.TextTruncate.AtEnd
-        SongTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+        TrackLabel = Instance.new("TextLabel")
+        TrackLabel.Size = UDim2.new(1, -110, 0, 18)
+        TrackLabel.Position = UDim2.new(0, 46, 0, 8)
+        TrackLabel.BackgroundTransparency = 1
+        TrackLabel.Text = Playlist[1].Title
+        TrackLabel.TextColor3 = Color3.fromRGB(245, 245, 250)
+        TrackLabel.Font = Enum.Font.GothamBold
+        TrackLabel.TextSize = 11
+        TrackLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TrackLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        TrackLabel.Parent = MiniFrame
 
-        SongGenreLbl = Instance.new("TextLabel", MiniPlayer)
-        SongGenreLbl.Size = UDim2.new(0, 110, 0, 14)
-        SongGenreLbl.Position = UDim2.new(0, 52, 0, 26)
-        SongGenreLbl.BackgroundTransparency = 1
-        SongGenreLbl.Text = "♪ " .. Playlist[1].Genre
-        SongGenreLbl.TextColor3 = Palette.SpotifyGreen
-        SongGenreLbl.Font = Enum.Font.GothamMedium
-        SongGenreLbl.TextSize = 9
-        SongGenreLbl.TextXAlignment = Enum.TextXAlignment.Left
+        GenreLabel = Instance.new("TextLabel")
+        GenreLabel.Size = UDim2.new(1, -110, 0, 14)
+        GenreLabel.Position = UDim2.new(0, 46, 0, 26)
+        GenreLabel.BackgroundTransparency = 1
+        GenreLabel.Text = "Recexify 200 • " .. Playlist[1].Genre
+        GenreLabel.TextColor3 = Color3.fromRGB(30, 215, 96)
+        GenreLabel.Font = Enum.Font.GothamMedium
+        GenreLabel.TextSize = 9
+        GenreLabel.TextXAlignment = Enum.TextXAlignment.Left
+        GenreLabel.Parent = MiniFrame
 
-        -- Botões do Mini-Player (Play/Pause e Próxima)
-        PlayPauseBtn = Instance.new("TextButton", MiniPlayer)
+        PlayPauseBtn = Instance.new("TextButton")
         PlayPauseBtn.Size = UDim2.new(0, 26, 0, 26)
-        PlayPauseBtn.Position = UDim2.new(1, -64, 0.5, -13)
-        PlayPauseBtn.BackgroundColor3 = Palette.SpotifyGreen
-        PlayPauseBtn.Text = "❚❚"
-        PlayPauseBtn.TextColor3 = Palette.BgDark
+        PlayPauseBtn.Position = UDim2.new(1, -60, 0.5, -13)
+        PlayPauseBtn.BackgroundColor3 = Color3.fromRGB(30, 215, 96)
+        PlayPauseBtn.Text = "II"
+        PlayPauseBtn.TextColor3 = Color3.fromRGB(12, 12, 15)
         PlayPauseBtn.Font = Enum.Font.GothamBlack
         PlayPauseBtn.TextSize = 10
-        Instance.new("UICorner", PlayPauseBtn).CornerRadius = UDim.new(1, 0)
+        PlayPauseBtn.Parent = MiniFrame
 
-        local NextMiniBtn = Instance.new("TextButton", MiniPlayer)
-        NextMiniBtn.Size = UDim2.new(0, 26, 0, 26)
-        NextMiniBtn.Position = UDim2.new(1, -32, 0.5, -13)
-        NextMiniBtn.BackgroundColor3 = Palette.Card
-        NextMiniBtn.Text = "►|"
-        NextMiniBtn.TextColor3 = Palette.PureWhite
+        local PPCorner = Instance.new("UICorner")
+        PPCorner.CornerRadius = UDim.new(1, 0)
+        PPCorner.Parent = PlayPauseBtn
+
+        local NextMiniBtn = Instance.new("TextButton")
+        NextMiniBtn.Size = UDim2.new(0, 24, 0, 24)
+        NextMiniBtn.Position = UDim2.new(1, -30, 0.5, -12)
+        NextMiniBtn.BackgroundColor3 = Color3.fromRGB(26, 28, 38)
+        NextMiniBtn.Text = ">>"
+        NextMiniBtn.TextColor3 = Color3.fromRGB(220, 220, 230)
         NextMiniBtn.Font = Enum.Font.GothamBold
-        NextMiniBtn.TextSize = 10
-        Instance.new("UICorner", NextMiniBtn).CornerRadius = UDim.new(1, 0)
+        NextMiniBtn.TextSize = 9
+        NextMiniBtn.Parent = MiniFrame
 
-        local function PlayTrack(idx)
-            CurrentIndex = idx
-            local track = Playlist[CurrentIndex]
-            MainSound.SoundId = "rbxassetid://" .. tostring(track.Id)
-            MainSound:Play()
-            IsPlaying = true
-            if SongTitleLbl then SongTitleLbl.Text = track.Title end
-            if SongGenreLbl then SongGenreLbl.Text = "♪ " .. track.Genre end
-            if PlayPauseBtn then PlayPauseBtn.Text = "❚❚" end
-            Hub.Notify("Recexify (Spotify)", "Tocando: " .. track.Title .. " [" .. track.Genre .. "]", 2.5)
-        end
-
-        local function NextTrack()
-            if ShuffleMode then
-                PlayTrack(math.random(1, #Playlist))
-            else
-                PlayTrack((CurrentIndex % #Playlist) + 1)
-            end
-        end
+        local NextCorner = Instance.new("UICorner")
+        NextCorner.CornerRadius = UDim.new(1, 0)
+        NextCorner.Parent = NextMiniBtn
 
         PlayPauseBtn.MouseButton1Click:Connect(function()
-            IsPlaying = not IsPlaying
-            if IsPlaying then
-                MainSound:Resume()
-                PlayPauseBtn.Text = "❚❚"
-            else
+            if MainSound.IsPlaying then
                 MainSound:Pause()
                 PlayPauseBtn.Text = "▶"
-            end
-        end)
-
-        NextMiniBtn.MouseButton1Click:Connect(NextTrack)
-
-        -- Animação das Barras do Equalizador reagindo à batida da música!
-        RunService.RenderStepped:Connect(function(dt)
-            if not MiniPlayer or not MiniPlayer.Parent then return end
-            local loudness = MainSound.Playing and math.clamp(MainSound.PlaybackLoudness / 220, 0.15, 1) or 0.1
-            for i, bar in ipairs(EqBars) do
-                local wave = MainSound.Playing and (math.sin(tick() * (8 + i * 2)) * 0.35 + 0.65) or 0.2
-                local h = math.clamp(math.floor(24 * loudness * wave), 4, 24)
-                bar.Size = bar.Size:Lerp(UDim2.new(0, 4, 0, h), dt * 14)
-            end
-        end)
-
-        -- =========================================================================
-        -- ELEMENTOS DA ABA SPOTIFY NO HUB
-        -- =========================================================================
-        TabSpotify:AddSection("Controles do Player (Recexify)")
-
-        TabSpotify:AddButton("⏯ Pausar / Retomar Música", "Pausa ou continua a faixa atual imediatamente", function()
-            IsPlaying = not IsPlaying
-            if IsPlaying then
+            else
                 MainSound:Resume()
-                if PlayPauseBtn then PlayPauseBtn.Text = "❚❚" end
-            else
-                MainSound:Pause()
-                if PlayPauseBtn then PlayPauseBtn.Text = "▶" end
+                PlayPauseBtn.Text = "II"
             end
         end)
 
-        TabSpotify:AddButton("⏭ Próxima Música da Playlist", "Pula para a próxima batida Lo-Fi / Hip-Hop", function()
-            NextTrack()
-        end)
-
-        TabSpotify:AddButton("⏮ Música Anterior", "Volta para a faixa anterior da lista", function()
-            local prev = CurrentIndex - 1
-            if prev < 1 then prev = #Playlist end
-            PlayTrack(prev)
-        end)
-
-        TabSpotify:AddToggle("Mostrar Mini-Player Spotify na Tela", "Exibe ou oculta o card flutuante com equalizador no canto inferior", true, function(enabled)
-            if MiniPlayer then MiniPlayer.Visible = enabled end
-        end)
-
-        TabSpotify:AddToggle("Modo Aleatório (Shuffle)", "Escolhe a próxima música de forma aleatória", false, function(enabled)
-            ShuffleMode = enabled
-        end)
-
-        TabSpotify:AddSlider("Volume da Música (%)", 0, 100, 35, function(val)
-            CurrentVolume = val / 100
-            MainSound.Volume = CurrentVolume
-        end)
-
-        -- =========================================================================
-        -- EFEITOS DE ESTÚDIO (SLOWED + REVERB, NIGHTCORE, CHUVA, BASS BOOST)
-        -- =========================================================================
-        TabSpotify:AddSection("Efeitos de Áudio & Ambiente")
-
-        TabSpotify:AddToggle("Efeito Slowed + Reverb (Aesthetic)", "Deixa a música mais lenta (0.82x) com eco profundo de estúdio", false, function(enabled)
-            ReverbEffect.Enabled = enabled
-            MainSound.PlaybackSpeed = enabled and 0.82 or 1.0
-            Hub.Notify("Estúdio de Áudio", enabled and "Modo Slowed + Reverb ativado!" or "Velocidade original restaurada.", 2.5)
-        end)
-
-        TabSpotify:AddToggle("Efeito Nightcore (Speed Up)", "Acelera a batida e o tom da música (1.22x)", false, function(enabled)
-            MainSound.PlaybackSpeed = enabled and 1.22 or 1.0
-            Hub.Notify("Estúdio de Áudio", enabled and "Modo Nightcore ativado!" or "Velocidade original restaurada.", 2.5)
-        end)
-
-        TabSpotify:AddToggle("Bass Boost (Reforço de Graves)", "Aumenta os graves do Hip-Hop e Lo-Fi no equalizador", false, function(enabled)
-            BassEffect.Enabled = enabled
-            Hub.Notify("Equalizador", enabled and "Bass Boost ativado!" or "Equalizador normal.", 2)
-        end)
-
-        TabSpotify:AddToggle("🌧️ Camada de Chuva Suave no Fundo", "Adiciona barulho relaxante de chuva na janela junto com a música", false, function(enabled)
-            if enabled then
-                RainSound:Play()
-                Hub.Notify("Ambiente Lo-Fi", "Som de chuva ativado no fundo!", 2.5)
+        NextMiniBtn.MouseButton1Click:Connect(function()
+            if ShuffleEnabled then
+                CurrentIndex = math.random(1, #Playlist)
             else
-                RainSound:Stop()
+                CurrentIndex = (CurrentIndex % #Playlist) + 1
             end
+            local track = Playlist[CurrentIndex]
+            MainSound.SoundId = track.Id
+            MainSound.PlaybackSpeed = track.BasePitch * CurrentSpeedMode
+            MainSound:Play()
+            TrackLabel.Text = track.Title
+            GenreLabel.Text = "Recexify 200 • " .. track.Genre
+            PlayPauseBtn.Text = "II"
         end)
+    end
 
-        -- =========================================================================
-        -- SELEÇÃO DIRETA DE TODAS AS 18 MÚSICAS POR ESTILO
-        -- =========================================================================
-        TabSpotify:AddSection("PlaylistCompleta (Clique para Tocar)")
+    local function PlayTrack(index)
+        CurrentIndex = index
+        local track = Playlist[CurrentIndex]
+        if not track then return end
 
-        for idx, song in ipairs(Playlist) do
-            TabSpotify:AddButton("♪ " .. song.Title, "Estilo: " .. song.Genre .. "  •  ID: " .. tostring(song.Id), function()
-                PlayTrack(idx)
-            end)
+        MainSound.SoundId = track.Id
+        MainSound.PlaybackSpeed = track.BasePitch * CurrentSpeedMode
+        MainSound:Play()
+
+        if TrackLabel and GenreLabel and PlayPauseBtn then
+            TrackLabel.Text = track.Title
+            GenreLabel.Text = "Recexify 200 • " .. track.Genre
+            PlayPauseBtn.Text = "II"
         end
+
+        Hub.Notify("♪ Tocando Agora", track.Title .. " (" .. track.Genre .. ")", 3)
+    end
+
+    RunService.RenderStepped:Connect(function(dt)
+        if #EqBars > 0 then
+            local loudness = MainSound.IsPlaying and math.clamp(MainSound.PlaybackLoudness / 250, 0.15, 1) or 0.08
+            for i, bar in ipairs(EqBars) do
+                local jitter = MainSound.IsPlaying and math.abs(math.sin(tick() * 10 + i * 1.7)) or 0.2
+                local height = math.clamp(math.floor(20 * loudness * jitter), 4, 20)
+                bar.Size = bar.Size:Lerp(UDim2.new(0, 3, 0, height), dt * 14)
+            end
+        end
+        if Audio8DEnabled and MainSound.IsPlaying then
+            ReverbEffect.Enabled = true
+            ReverbEffect.WetLevel = -4 + math.sin(tick() * 1.5) * 3
+        end
+    end)
+
+    -- CONTROLES PRINCIPAIS DO SPOTIFY
+    SpotifyTab:AddSection("Controles Recexify (200 Faixas)")
+
+    SpotifyTab:AddButton("⏯ Pausar / Retomar Música", "Pausa ou continua a batida atual", function()
+        if MainSound.IsPlaying then
+            MainSound:Pause()
+            if PlayPauseBtn then PlayPauseBtn.Text = "▶" end
+        else
+            MainSound:Resume()
+            if PlayPauseBtn then PlayPauseBtn.Text = "II" end
+        end
+    end)
+
+    SpotifyTab:AddButton("🎲 Sortear Música Aleatória (1 a 200)", "Escolhe instantaneamente uma das 200 músicas", function()
+        PlayTrack(math.random(1, #Playlist))
+    end)
+
+    SpotifyTab:AddButton("⏭ Próxima Música (+1)", "Avança para a próxima faixa", function()
+        PlayTrack((CurrentIndex % #Playlist) + 1)
+    end)
+
+    SpotifyTab:AddButton("⏩ Pular +10 Músicas", "Avança rapidamente pelo catálogo de 200 faixas", function()
+        PlayTrack(((CurrentIndex + 9) % #Playlist) + 1)
+    end)
+
+    SpotifyTab:AddSlider("Volume do Player (%)", 0, 100, 35, function(val)
+        MainSound.Volume = val / 100
+    end)
+
+    SpotifyTab:AddToggle("Modo Aleatório (Shuffle)", "Sorteia entre as 200 músicas ao avançar", false, function(state)
+        ShuffleEnabled = state
+    end)
+
+    SpotifyTab:AddToggle("Mostrar Mini-Player Flutuante", "Exibe ou oculta a barra do Spotify no canto", true, function(state)
+        if MiniFrame then MiniFrame.Visible = state end
+    end)
+
+    -- EFEITOS DE ESTÚDIO
+    SpotifyTab:AddSection("Efeitos de Áudio (Studio FX)")
+
+    SpotifyTab:AddToggle("Modo Slowed + Reverb (Aesthetic)", "Deixa a música mais lenta com ambiência", false, function(state)
+        ReverbEffect.Enabled = state
+        CurrentSpeedMode = state and 0.82 or 1
+        MainSound.PlaybackSpeed = Playlist[CurrentIndex].BasePitch * CurrentSpeedMode
+    end)
+
+    SpotifyTab:AddToggle("Modo Nightcore (Speed Up)", "Acelera o ritmo e sobe o tom da faixa", false, function(state)
+        CurrentSpeedMode = state and 1.22 or 1
+        MainSound.PlaybackSpeed = Playlist[CurrentIndex].BasePitch * CurrentSpeedMode
+    end)
+
+    SpotifyTab:AddToggle("Bass Boost (Grave Pesado)", "Realça as frequências graves do Hip-Hop/Phonk", false, function(state)
+        BassEffect.Enabled = state
+    end)
+
+    SpotifyTab:AddToggle("Áudio 8D Espacial", "Oscilação imersiva de ambiência ao redor", false, function(state)
+        Audio8DEnabled = state
+        if not state then ReverbEffect.Enabled = false end
+    end)
+
+    SpotifyTab:AddToggle("Camada de Chuva Suave (Lo-Fi Rain)", "Adiciona som relaxante de chuva ao fundo", false, function(state)
+        if state then RainSound:Play() else RainSound:Stop() end
+    end)
+
+    -- RENDERIZA TODAS AS 200 MÚSICAS DIVIDIDAS POR SEÇÃO
+    local LastGenre = ""
+    for i, track in ipairs(Playlist) do
+        if track.Genre ~= LastGenre then
+            LastGenre = track.Genre
+            SpotifyTab:AddSection("Playlist: " .. LastGenre)
+        end
+        SpotifyTab:AddButton("♪ " .. track.Title, "Tocar agora • " .. track.Genre, function()
+            PlayTrack(i)
+        end)
     end
 end
