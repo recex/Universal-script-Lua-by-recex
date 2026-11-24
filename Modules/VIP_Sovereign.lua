@@ -1,9 +1,7 @@
 -- ==============================================================================
--- 👑 MODULE: Modules/VIP_Sovereign.lua (YARHM 1.20 FULL SUITE EDITION)
--- Inclui todas as funções do YARHM 1.20 divididas em 3 Abas:
--- 1. 👑 YARHM Universal (Floating Buttons, WalkFling, Anti-Fling, AirWalk, Target)
--- 2. 🔪 YARHM MM2 (Role ESP, Shoot Murderer, Safe Grab Gun, Coin Farm, Kill All)
--- 3. 🔨 YARHM FTF & Horror (PC/Beast ESP, Never Fail Hack, No Slow, Generators)
+-- 👑 MODULE: Modules/VIP_Sovereign.lua (YARHM 1.20 FULL SUITE - FIXED EDITION)
+-- Correção Aplicada: Sistema próprio de Notificações Flutuantes YARHM (YNotify)
+-- eliminando o erro "attempt to call a nil value" no Window:Notify!
 -- ==============================================================================
 
 return function(Window, Tabs, Recex, VIPData)
@@ -17,6 +15,7 @@ return function(Window, Tabs, Recex, VIPData)
     local Workspace = game:GetService("Workspace")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local TweenService = game:GetService("TweenService")
+    local StarterGui = game:GetService("StarterGui")
     local CoreGui = game:GetService("CoreGui")
     local LocalPlayer = Players.LocalPlayer
     local Camera = Workspace.CurrentCamera
@@ -69,7 +68,7 @@ return function(Window, Tabs, Recex, VIPData)
     }
 
     -- ==========================================================================
-    -- 📌 1. YARHM FLOATING BUTTONS & ON-SCREEN HUD (BOTÕES RÁPIDOS NA TELA)
+    -- 📌 1. YARHM FLOATING UI & SISTEMA DE NOTIFICAÇÕES (SEM ERRO DE NIL)
     -- ==========================================================================
     local SafeParent = (gethui and gethui()) or CoreGui
     if SafeParent:FindFirstChild("RecexYARHM_FullGUI") then
@@ -80,6 +79,72 @@ return function(Window, Tabs, Recex, VIPData)
     YGui.Name = "RecexYARHM_FullGUI"
     YGui.ResetOnSpawn = false
     YGui.Parent = SafeParent
+
+    -- Container de Notificações YARHM (Canto Inferior Direito)
+    local NotifyHolder = Instance.new("Frame")
+    NotifyHolder.Size = UDim2.new(0, 250, 0, 300)
+    NotifyHolder.Position = UDim2.new(1, -265, 1, -315)
+    NotifyHolder.BackgroundTransparency = 1
+    NotifyHolder.Parent = YGui
+
+    local NotifyLayout = Instance.new("UIListLayout", NotifyHolder)
+    NotifyLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+    NotifyLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+    NotifyLayout.Padding = UDim.new(0, 8)
+
+    -- Função Segura de Notificação (Resolve o erro da Linha 499!)
+    local function YNotify(title, message)
+        task.spawn(function()
+            local Card = Instance.new("Frame")
+            Card.Size = UDim2.new(1, 0, 0, 52)
+            Card.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+            Card.BackgroundTransparency = 0.08
+            Card.BorderSizePixel = 0
+            Card.Parent = NotifyHolder
+            Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 10)
+
+            local Stroke = Instance.new("UIStroke", Card)
+            Stroke.Color = Color3.fromRGB(255, 200, 60)
+            Stroke.Thickness = 1.3
+
+            local T = Instance.new("TextLabel", Card)
+            T.Size = UDim2.new(1, -16, 0, 20)
+            T.Position = UDim2.new(0, 8, 0, 5)
+            T.BackgroundTransparency = 1
+            T.Text = tostring(title or "YARHM VIP")
+            T.Font = Enum.Font.GothamBlack
+            T.TextSize = 11
+            T.TextColor3 = Color3.fromRGB(255, 205, 65)
+            T.TextXAlignment = Enum.TextXAlignment.Left
+
+            local M = Instance.new("TextLabel", Card)
+            M.Size = UDim2.new(1, -16, 0, 22)
+            M.Position = UDim2.new(0, 8, 0, 24)
+            M.BackgroundTransparency = 1
+            M.Text = tostring(message or "")
+            M.Font = Enum.Font.GothamMedium
+            M.TextSize = 10
+            M.TextColor3 = Color3.fromRGB(230, 230, 240)
+            M.TextXAlignment = Enum.TextXAlignment.Left
+            M.TextWrapped = true
+
+            task.wait(3.2)
+            if Card and Card.Parent then
+                TweenService:Create(Card, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+                TweenService:Create(T, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+                TweenService:Create(M, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+                task.wait(0.32)
+                if Card and Card.Parent then Card:Destroy() end
+            end
+        end)
+    end
+
+    -- Registra também no Window para nunca dar nil em nenhum módulo
+    if type(Window) == "table" and not Window.Notify then
+        Window.Notify = function(_, title, msg)
+            YNotify(title, msg)
+        end
+    end
 
     -- Barra Flutuante de Ações Rápidas YARHM
     local QuickBar = Instance.new("Frame")
@@ -133,7 +198,6 @@ return function(Window, Tabs, Recex, VIPData)
             if type(state) == "boolean" then
                 SetVisual(state)
             else
-                -- Efeito de pulso para botões instantâneos (Shoot / GunTP)
                 SetVisual(true)
                 task.delay(0.2, function() SetVisual(false) end)
             end
@@ -142,7 +206,7 @@ return function(Window, Tabs, Recex, VIPData)
         QuickUpdaters[id] = SetVisual
     end
 
-    -- Painel Flutuante de Roles MM2 (Murderer / Sheriff / GunDrop)
+    -- Painel Flutuante de Roles MM2
     local RoleHUD = Instance.new("Frame")
     RoleHUD.Size = UDim2.new(0, 220, 0, 92)
     RoleHUD.Position = UDim2.new(1, -235, 0.32, 0)
@@ -232,12 +296,11 @@ return function(Window, Tabs, Recex, VIPData)
         return nil
     end
 
-    -- YARHM Safe Grab Gun (Usa firetouchinterest se disponível + fallback CFrame rápido)
     local function SafeGrabGun()
         local gunDrop = FindGunDrop()
         local hrp = GetHRP()
         if not gunDrop or not hrp then
-            Window:Notify("YARHM GunTP", "Nenhuma GunDrop caída no mapa agora!")
+            YNotify("YARHM GunTP", "Nenhuma GunDrop caída no mapa agora!")
             return
         end
 
@@ -255,14 +318,13 @@ return function(Window, Tabs, Recex, VIPData)
         if hrp and hrp.Parent then
             hrp.CFrame = oldCF
         end
-        Window:Notify("YARHM GunTP", "Arma coletada com segurança!")
+        YNotify("YARHM GunTP", "Arma coletada com segurança!")
     end
 
-    -- YARHM Shoot Murderer (Com Predição de Movimento + Suporte Universal/MM2)
     local function ShootMurdererAction()
         local murderer = GetMurderer()
         if not murderer or not murderer.Character then
-            Window:Notify("YARHM Shoot", "Murderer não encontrado na partida!")
+            YNotify("YARHM Shoot", "Murderer não encontrado na partida!")
             return
         end
 
@@ -272,14 +334,12 @@ return function(Window, Tabs, Recex, VIPData)
         local myHum = GetHum(myChar)
         if not mHRP or not myHRP or not myHum then return end
 
-        -- Procura a arma no nosso inventário ou mão
         local hasGun, gunTool = HasToolKeyword(LocalPlayer, {"gun", "revolver", "pistol", "sheriff", "laser"})
         if not hasGun or not gunTool then
-            Window:Notify("YARHM Shoot", "Você não está com a arma do Sheriff!")
+            YNotify("YARHM Shoot", "Você não está com a arma do Sheriff!")
             return
         end
 
-        -- Equipa a arma automaticamente
         if gunTool.Parent ~= myChar then
             myHum:EquipTool(gunTool)
             task.wait(0.08)
@@ -287,17 +347,14 @@ return function(Window, Tabs, Recex, VIPData)
 
         local savedCF = myHRP.CFrame
         if Y.MM2_TeleportShoot then
-            -- Teleporta estrategicamente atrás do Murderer para tiro limpo
             myHRP.CFrame = mHRP.CFrame * CFrame.new(0, 2, 14)
             task.wait(0.06)
         end
 
-        -- Calcula posição predita com base na velocidade do Murderer
         local predictedPos = mHRP.Position + (mHRP.AssemblyLinearVelocity * Y.MM2_Prediction)
         Camera.CFrame = CFrame.new(Camera.CFrame.Position, predictedPos)
         myHRP.CFrame = CFrame.new(myHRP.Position, Vector3.new(predictedPos.X, myHRP.Position.Y, predictedPos.Z))
 
-        -- Tenta Remote Oficial do MM2 (CreateBeam) + Activate Universal
         pcall(function()
             local knifeLocal = gunTool:FindFirstChild("KnifeLocal")
             if knifeLocal and knifeLocal:FindFirstChild("CreateBeam") then
@@ -314,7 +371,7 @@ return function(Window, Tabs, Recex, VIPData)
                 myHRP.CFrame = savedCF
             end
         end
-        Window:Notify("🔫 YARHM Shoot", "Disparo efetuado em " .. murderer.DisplayName .. "!")
+        YNotify("🔫 YARHM Shoot", "Disparo efetuado em " .. murderer.DisplayName .. "!")
     end
 
     -- ==========================================================================
@@ -344,6 +401,7 @@ return function(Window, Tabs, Recex, VIPData)
     local function ToggleWalkFling(state)
         Y.WalkFling = state
         if QuickUpdaters["Fling"] then QuickUpdaters["Fling"](state) end
+        YNotify("🌪️ YARHM WalkFling", state and "Ativado! Encoste para arremessar." or "WalkFling Desativado.")
     end
 
     local function ToggleNoclip(state)
@@ -351,7 +409,6 @@ return function(Window, Tabs, Recex, VIPData)
         if QuickUpdaters["Noclip"] then QuickUpdaters["Noclip"](state) end
     end
 
-    -- Cria os 6 Botões Flutuantes Clássicos do YARHM 1.20 no Topo
     AddQuickBtn("Shoot", "🔫 SHOOT", Color3.fromRGB(70, 165, 255), function()
         ShootMurdererAction()
     end)
@@ -372,14 +429,15 @@ return function(Window, Tabs, Recex, VIPData)
     end)
     AddQuickBtn("Escape", "🛡️ ESCAPE", Color3.fromRGB(80, 240, 140), function()
         local hrp = GetHRP()
-        if hrp then hrp.CFrame = hrp.CFrame + Vector3.new(0, 85, 0) end
+        if hrp then
+            hrp.CFrame = hrp.CFrame + Vector3.new(0, 85, 0)
+            YNotify("🛡️ YARHM Escape", "Teleportado para zona segura acima!")
+        end
     end)
 
     -- ==========================================================================
     -- 🔄 4. LOOPS DE MOTOR (STEPPED & HEARTBEAT & SCANNER)
     -- ==========================================================================
-
-    -- Stepped: Noclip, Anti-Fling e Anti-Trap
     RunService.Stepped:Connect(function()
         local myChar = GetChar()
         if Y.Noclip and myChar then
@@ -405,27 +463,23 @@ return function(Window, Tabs, Recex, VIPData)
         end
     end)
 
-    -- Heartbeat: WalkFling, Velocity Speed, AirWalk, FTF No-Slow, MM2 Kill Aura
     RunService.Heartbeat:Connect(function()
         local myChar = GetChar()
         local hrp = GetHRP(myChar)
         local hum = GetHum(myChar)
         if not hrp or not hum then return end
 
-        -- Loop WalkSpeed / No Beast Slowdown (FTF)
         if Y.LoopWS then
             hum.WalkSpeed = Y.WSVal
         elseif Y.FTF_NoSlow and hum.WalkSpeed < 16 then
             hum.WalkSpeed = 16
         end
 
-        -- Infinite Stamina (Forsaken / Horror games)
         if Y.Horror_InfStamina then
             if myChar:GetAttribute("Stamina") then myChar:SetAttribute("Stamina", 100) end
             if LocalPlayer:GetAttribute("Stamina") then LocalPlayer:SetAttribute("Stamina", 100) end
         end
 
-        -- Velocity Speed Boost
         if Y.VelSpeed and hum.MoveDirection.Magnitude > 0 then
             local v = hrp.AssemblyLinearVelocity
             hrp.AssemblyLinearVelocity = Vector3.new(
@@ -435,7 +489,6 @@ return function(Window, Tabs, Recex, VIPData)
             )
         end
 
-        -- AirWalk
         if Y.AirWalk then
             if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
                 Y.AirWalkY = Y.AirWalkY + 0.45
@@ -445,7 +498,6 @@ return function(Window, Tabs, Recex, VIPData)
             AirPart.Position = Vector3.new(hrp.Position.X, Y.AirWalkY, hrp.Position.Z)
         end
 
-        -- Target Follow
         if Y.TargetFollow and Y.SelectedTarget and Y.SelectedTarget.Character then
             local tHRP = GetHRP(Y.SelectedTarget.Character)
             if tHRP then
@@ -453,7 +505,6 @@ return function(Window, Tabs, Recex, VIPData)
             end
         end
 
-        -- MM2 Knife Kill Aura (Puxa inimigos no alcance para a faca)
         if Y.MM2_KillAura then
             local hasKnife, knife = HasToolKeyword(LocalPlayer, {"knife", "faca", "scythe", "blade"})
             if hasKnife and knife then
@@ -481,7 +532,6 @@ return function(Window, Tabs, Recex, VIPData)
             end
         end
 
-        -- WalkFling Físico YARHM
         if Y.WalkFling then
             local origV = hrp.AssemblyLinearVelocity
             hrp.AssemblyLinearVelocity = origV * 10000 + Vector3.new(0, 10000, 0)
@@ -492,12 +542,10 @@ return function(Window, Tabs, Recex, VIPData)
         end
     end)
 
-    -- Loop de Inteligência (0.5s): MM2 ESP/Auto-Grab/CoinFarm, FTF ESP/Auto-Hack, Hitbox
     task.spawn(function()
         while task.wait(0.5) do
             local myHRP = GetHRP()
 
-            -- 1. Hitbox Expander Universal
             for _, plr in ipairs(Players:GetPlayers()) do
                 if plr ~= LocalPlayer and plr.Character then
                     local tHRP = GetHRP(plr.Character)
@@ -514,7 +562,6 @@ return function(Window, Tabs, Recex, VIPData)
                 end
             end
 
-            -- 2. Instant ProximityPrompts
             if Y.InstantPrompts then
                 for _, prompt in ipairs(Workspace:GetDescendants()) do
                     if prompt:IsA("ProximityPrompt") then
@@ -523,7 +570,6 @@ return function(Window, Tabs, Recex, VIPData)
                 end
             end
 
-            -- 3. MM2 Role Tracker, ESP & Auto-Dodge
             local murderer = GetMurderer()
             local sheriff = GetSheriff()
             local gunDrop = FindGunDrop()
@@ -543,7 +589,7 @@ return function(Window, Tabs, Recex, VIPData)
                 local mHRP = GetHRP(murderer.Character)
                 if mHRP and (mHRP.Position - myHRP.Position).Magnitude < 18 then
                     myHRP.CFrame = myHRP.CFrame + Vector3.new(0, 45, 0)
-                    Window:Notify("🛡️ Anti-Murderer", "Murderer chegou perto! Você foi salvo.")
+                    YNotify("🛡️ Anti-Murderer", "Murderer chegou perto! Você foi salvo.")
                 end
             end
 
@@ -556,7 +602,6 @@ return function(Window, Tabs, Recex, VIPData)
                 end
             end
 
-            -- MM2 Role ESP
             for _, plr in ipairs(Players:GetPlayers()) do
                 if plr ~= LocalPlayer and plr.Character then
                     local hl = plr.Character:FindFirstChild("YARHM_MM2_HL")
@@ -580,7 +625,6 @@ return function(Window, Tabs, Recex, VIPData)
                 end
             end
 
-            -- MM2 GunDrop ESP
             if gunDrop then
                 local ghl = gunDrop:FindFirstChild("YARHM_GunHL")
                 if Y.MM2_GunESP then
@@ -596,7 +640,6 @@ return function(Window, Tabs, Recex, VIPData)
                 end
             end
 
-            -- 4. Flee the Facility (FTF): Never Fail PC & ESP
             if Y.FTF_NeverFailPC then
                 pcall(function()
                     local rem = ReplicatedStorage:FindFirstChild("RemoteEvent")
@@ -608,7 +651,6 @@ return function(Window, Tabs, Recex, VIPData)
 
             if Y.FTF_PCESP or Y.FTF_PodExitESP or Y.Horror_GenESP then
                 for _, obj in ipairs(Workspace:GetDescendants()) do
-                    -- FTF ComputerTable ESP (Usa a cor do Screen para saber se já terminou!)
                     if Y.FTF_PCESP and obj.Name == "ComputerTable" and obj:IsA("Model") then
                         local hl = obj:FindFirstChild("YARHM_PC_HL")
                         if not hl then
@@ -620,7 +662,6 @@ return function(Window, Tabs, Recex, VIPData)
                         hl.FillColor = (scr and scr:IsA("BasePart") and scr.Color) or Color3.fromRGB(0, 200, 255)
                     end
 
-                    -- FTF FreezePod & ExitDoor ESP
                     if Y.FTF_PodExitESP and (obj.Name == "FreezePod" or obj.Name == "ExitDoor") and obj:IsA("Model") then
                         if not obj:FindFirstChild("YARHM_Pod_HL") then
                             local hl = Instance.new("Highlight", obj)
@@ -629,7 +670,6 @@ return function(Window, Tabs, Recex, VIPData)
                         end
                     end
 
-                    -- Horror / Forsaken Generator ESP
                     if Y.Horror_GenESP and obj:IsA("Model") and obj.Name:lower():find("generator") then
                         if not obj:FindFirstChild("YARHM_Gen_HL") then
                             local hl = Instance.new("Highlight", obj)
@@ -640,7 +680,6 @@ return function(Window, Tabs, Recex, VIPData)
                 end
             end
 
-            -- FTF Beast ESP (Quem tem Hammer)
             if Y.FTF_BeastESP then
                 for _, plr in ipairs(Players:GetPlayers()) do
                     if plr ~= LocalPlayer and plr.Character then
@@ -661,7 +700,6 @@ return function(Window, Tabs, Recex, VIPData)
         end
     end)
 
-    -- Loop Separado para MM2 Coin Auto-Farm (Tween Suave Anti-Kick)
     task.spawn(function()
         while task.wait(0.35) do
             if Y.MM2_CoinFarm then
@@ -709,6 +747,7 @@ return function(Window, Tabs, Recex, VIPData)
 
     TabUniv:CreateToggle("YARHM Anti-Fling 100% (Imune a Fling/Colisão)", false, function(s)
         Y.AntiFling = s
+        YNotify("🛡️ YARHM Anti-Fling", s and "Colisões de terceiros neutralizadas!" or "Anti-Fling Desativado.")
     end)
 
     TabUniv:CreateSection("🏃 Movimento Universal & Utilidades")
@@ -757,10 +796,13 @@ return function(Window, Tabs, Recex, VIPData)
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer then table.insert(list, p) end
         end
-        if #list == 0 then return end
+        if #list == 0 then
+            YNotify("🎯 Alvo YARHM", "Nenhum outro jogador na sala!")
+            return
+        end
         tIdx = (tIdx % #list) + 1
         Y.SelectedTarget = list[tIdx]
-        Window:Notify("🎯 Alvo YARHM", Y.SelectedTarget.DisplayName .. " (@" .. Y.SelectedTarget.Name .. ")")
+        YNotify("🎯 Alvo Selecionado", Y.SelectedTarget.DisplayName .. " (@" .. Y.SelectedTarget.Name .. ")")
     end
 
     TabUniv:CreateButton("🔄 Selecionar Próximo Jogador da Sala", function()
@@ -797,6 +839,7 @@ return function(Window, Tabs, Recex, VIPData)
         local myHRP = GetHRP()
         if t and t.Character and GetHRP(t.Character) and myHRP then
             local saved = myHRP.CFrame
+            YNotify("🌪️ Target Fling", "Atacando " .. t.DisplayName .. "...")
             ToggleWalkFling(true)
             local st = tick()
             while tick() - st < 1.3 and t.Character and GetHRP(t.Character) do
@@ -806,6 +849,7 @@ return function(Window, Tabs, Recex, VIPData)
             ToggleWalkFling(false)
             myHRP.AssemblyLinearVelocity = Vector3.zero
             myHRP.CFrame = saved
+            YNotify("🌪️ Target Fling", "Alvo arremessado e posição restaurada!")
         end
     end)
 
@@ -865,7 +909,7 @@ return function(Window, Tabs, Recex, VIPData)
         local myHRP = GetHRP(myChar)
         local myHum = GetHum(myChar)
         if not hasKnife or not knife or not myHRP or not myHum then
-            Window:Notify("YARHM MM2", "Você precisa ser o Murderer para usar Kill All!")
+            YNotify("YARHM MM2", "Você precisa ser o Murderer para usar Kill All!")
             return
         end
         if knife.Parent ~= myChar then myHum:EquipTool(knife) end
